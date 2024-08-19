@@ -1,4 +1,17 @@
-// Function to handle sign up
+document.addEventListener('DOMContentLoaded', () => {
+    // Check which page we're on and run appropriate functions
+    if (document.getElementById('signupForm')) {
+        document.getElementById('signupForm').addEventListener('submit', signup);
+    } else if (document.getElementById('loginForm')) {
+        document.getElementById('loginForm').addEventListener('submit', login);
+    } else if (document.getElementById('profileName')) {
+        loadProfile();
+        setupEditProfile();
+    }
+    
+    checkLoggedIn();
+});
+
 function signup(event) {
     event.preventDefault();
     
@@ -328,20 +341,26 @@ async function submitEditProfileForm(formData) {
 }
 
 
-// Initialize functionality when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    // Check which page we're on and run appropriate functions
-    if (document.getElementById('signupForm')) {
-        document.getElementById('signupForm').addEventListener('submit', signup);
-    } else if (document.getElementById('loginForm')) {
-        document.getElementById('loginForm').addEventListener('submit', login);
-    } else if (document.getElementById('profileName')) {
-        loadProfile();
-        setupEditProfile();
+
+function checkLoggedIn() {
+    const token = localStorage.getItem('token');
+    const loginButton = document.getElementById('loginButton');
+    const signupButton = document.getElementById('signupButton');
+    const logoutButton = document.getElementById('logoutButton');
+    const profileButton = document.getElementById('profileButton');
+
+    if (token) {
+        if (loginButton) loginButton.style.display = 'none';
+        if (signupButton) signupButton.style.display = 'none';
+        if (logoutButton) logoutButton.style.display = 'block';
+        if (profileButton) profileButton.style.display = 'block';
+    } else {
+        if (loginButton) loginButton.style.display = 'block';
+        if (signupButton) signupButton.style.display = 'block';
+        if (logoutButton) logoutButton.style.display = 'none';
+        if (profileButton) profileButton.style.display = 'none';
     }
-    
-    checkLoggedIn();
-});
+}
 
 // Attach logout function to logout button if it exists
 const logoutButton = document.getElementById('logoutButton');
@@ -351,9 +370,12 @@ if (logoutButton) {
 
 // Function to handle logout
 function logout() {
+    // Clear any session data (e.g., tokens)
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
     localStorage.removeItem('userName');
     localStorage.removeItem('userProfilePic');
-    window.location.href = 'login.html';
+
+    // Redirect to the homepage
+    window.location.href = 'index.html';
 }

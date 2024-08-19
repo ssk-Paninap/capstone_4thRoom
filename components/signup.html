@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="../style.css">
 </head>
 <body class="bg-light">
-<nav class="navbar navbar-expand-lg navbar-light custom-navbar light-red-bg">
+    <nav class="navbar navbar-expand-lg navbar-light custom-navbar light-red-bg">
         <div class="container-fluid">
             <a class="navbar-brand" href="/index.html">4thRoom</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -27,8 +27,15 @@
                         <a class="nav-link" href="about.html"><i class="fas fa-info-circle"></i> About</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="login.html"><i class="fas fa-sign-in-alt"></i> Log In</a>
+                        <a id="loginButton" class="nav-link" href="login.html"><i class="fas fa-sign-in-alt"></i> Log In</a>
                     </li>
+                                    <li class="nav-item">
+                    <a   id="signupButton"  class="nav-link" href="signup.html"><i class="fas fa-user-plus"></i> Sign Up</a>
+                </li>
+                 </li>
+                    <li class="nav-item">
+                    <a  id="profileButton"  class="nav-link" href="profile.html"><i class="fas fa-user-plus"></i> profile</a>
+                </li>
                     <li class="nav-item">
                         <button id="logoutButton" class="btn btn-link nav-link" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Log Out</button>
                     </li>
