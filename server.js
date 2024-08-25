@@ -13,13 +13,12 @@ const Sentiment = require('sentiment');
 const sentiment = new Sentiment();
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 app.use(express.static('components'));
 app.use('/media', express.static('media'));
-
 // Database connection
 const connection = mysql.createConnection({
     host: 'localhost',
@@ -58,7 +57,11 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ storage: storage });;
+const upload = multer({
+    limits: {
+        fileSize: 5 * 1024 * 1024 // limit file size to 5MB
+    }
+});
 
 app.post('/edit-profile', verifyToken, upload.single('profileImage'), (req, res) => {
     const userId = req.userId;
@@ -176,13 +179,21 @@ app.get('/questions', (req, res) => {
             console.error('Error fetching questions:', error);
             return res.status(500).json({ error: 'Internal Server Error' });
         }
+        // Convert image_data to base64
+        results = results.map(row => {
+            if (row.image_data) {
+                row.image_data = row.image_data.toString('base64');
+            }
+            return row;
+        });
         res.json(results);
     });
 });
 
+
 // Route to handle chatbot messages
-app.post('/chatbot', (req, res) => {
-    const { message, sessionId } = req.body;
+app.post('/chatbot', verifyToken, (req, res) => {
+    const { message } = req.body;
     const similarityThreshold = 0.6;
 
     // Perform sentiment analysis
@@ -220,6 +231,8 @@ app.post('/chatbot', (req, res) => {
             const answers = questions.map(question => improvedFindBestMatch(question, results, similarityThreshold))
                                      .filter(match => match !== null);
 
+            const imagesToProcess = [];
+
             if (answers.length > 0) {
                 answers.forEach(match => {
                     if (match.confidence > 0.8) {
@@ -229,7 +242,42 @@ app.post('/chatbot', (req, res) => {
                     } else {
                         response += "I'm not entirely sure, but here's what I found: " + match.response + ' ';
                     }
+                    
+                    if (match.imageId) {
+                        imagesToProcess.push(match.imageId);
+                    }
                 });
+
+                // Process images after constructing the text response
+                if (imagesToProcess.length > 0) {
+                    const processImages = imagesToProcess.map(imageId => {
+                        return new Promise((resolve, reject) => {
+                            const imageQuery = 'SELECT image_data FROM faq WHERE id = ?';
+                            connection.query(imageQuery, [imageId], (error, results) => {
+                                if (error) reject(error);
+                                if (results.length > 0 && results[0].image_data) {
+                                    const imageData = results[0].image_data;
+                                    const base64Image = Buffer.from(imageData).toString('base64');
+                                    resolve(`<img src="data:image/jpeg;base64,${base64Image}" alt="Related image">`);
+                                } else {
+                                    resolve(''); // Resolve with empty string if image not found or null
+                                }
+                            });
+                        });
+                    });
+
+                    Promise.all(processImages)
+                        .then(imageHtmlArray => {
+                            response += imageHtmlArray.join(' ');
+                            finalize();
+                        })
+                        .catch(error => {
+                            console.error('Error processing images:', error);
+                            finalize();
+                        });
+                } else {
+                    finalize();
+                }
             } else if (!containsGreeting) {
                 // Handle no answers based on sentiment
                 if (sentimentScore < -2) {
@@ -239,20 +287,26 @@ app.post('/chatbot', (req, res) => {
                 } else {
                     response = "I'm afraid I don't have specific information about that. Could you rephrase your question or provide more details?";
                 }
+                finalize();
+            } else {
+                finalize();
             }
+        } else {
+            finalize();
         }
 
-        // Add sentiment-based closing
-        if (sentimentScore < -1) {
-            response += " I hope this information helps improve your day.";
-        } else if (sentimentScore > 1) {
-            response += " I'm glad I could assist you!";
+        function finalize() {
+            // Add sentiment-based closing
+            if (sentimentScore < -1) {
+                response += " I hope this information helps improve your day.";
+            } else if (sentimentScore > 1) {
+                response += " I'm glad I could assist you!";
+            }
+
+            // Store conversation history
+             storeConversationHistory(req.userId, message, response.trim());
+            res.json({ answer: response.trim(), isHtml: true });
         }
-
-        // Store conversation history (simplified version)
-        storeConversationHistory(sessionId, message, response.trim());
-
-        res.json({ answer: response.trim() });
     });
 });
 
@@ -286,6 +340,9 @@ function improvedFindBestMatch(userQuestion, faqResults, threshold) {
             bestMatch.score = overallSimilarity;
             bestMatch.response = record.answer;
             bestMatch.confidence = overallSimilarity;
+            if (record.image_data) {  // Only include image if it exists
+                bestMatch.imageId = record.id;
+            }
         }
     });
 
@@ -325,9 +382,10 @@ app.post('/save-chat-history', verifyToken, (req, res) => {
         });
     });
 });
+
 app.get('/chat-history', verifyToken, (req, res) => {
     const query = `
-        SELECT c.id, c.user_id, c.timestamp, m.message, m.response
+        SELECT c.id, c.timestamp, m.message, m.response
         FROM conversations c
         JOIN messages m ON c.id = m.conversation_id
         WHERE c.user_id = ?
@@ -339,42 +397,40 @@ app.get('/chat-history', verifyToken, (req, res) => {
             return res.status(500).json({ error: 'Internal Server Error' });
         }
         const groupedResults = results.reduce((acc, curr) => {
-            if (!acc[curr.id]) {
-                acc[curr.id] = {
-                    id: curr.id,
-                    timestamp: curr.timestamp,
-                    messages: []
-                };
+            const date = new Date(curr.timestamp).toLocaleDateString();
+            if (!acc[date]) {
+                acc[date] = [];
             }
-            acc[curr.id].messages.push({
-                message: curr.message,
-                response: curr.response
-            });
+            acc[date].push(curr);
             return acc;
         }, {});
-        res.json(Object.values(groupedResults));
+        res.json(groupedResults);
     });
 });
 
-app.delete('/delete-conversation/:id', verifyToken, (req, res) => {
-    const conversationId = req.params.id;
-    const query = 'DELETE FROM conversations WHERE id = ? AND user_id = ?';
-    connection.query(query, [conversationId, req.userId], (error, results) => {
+/////
+app.delete('/delete-conversations-by-date/:date', verifyToken, (req, res) => {
+    const date = req.params.date;
+    const query = 'DELETE c, m FROM conversations c JOIN messages m ON c.id = m.conversation_id WHERE DATE(c.timestamp) = ? AND c.user_id = ?';
+    connection.query(query, [date, req.userId], (error, results) => {
         if (error) {
-            console.error('Error deleting conversation:', error);
-            return res.status(500).json({ error: 'Internal Server Error' });
+            console.error('Error deleting conversations:', error);
+            return res.status(500).json({ success: false, message: 'Internal Server Error' });
         }
         if (results.affectedRows === 0) {
-            return res.status(404).json({ error: 'Conversation not found or unauthorized' });
+            return res.status(404).json({ success: false, message: 'No conversations found for this date' });
         }
-        res.json({ success: true, message: 'Conversation deleted successfully' });
+        res.json({ success: true, message: 'Conversations deleted successfully' });
     });
 });
 
-function storeConversationHistory(sessionId, message, response) {
-    // First, check if a conversation exists for this session
-    const checkConversationQuery = 'SELECT id FROM conversations WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1';
-    connection.query(checkConversationQuery, [sessionId], (error, results) => {
+
+function storeConversationHistory(userId, message, response) {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Check if a conversation exists for this user and date
+    const checkConversationQuery = 'SELECT id FROM conversations WHERE user_id = ? AND DATE(timestamp) = ? ORDER BY timestamp DESC LIMIT 1';
+    connection.query(checkConversationQuery, [userId, today], (error, results) => {
         if (error) {
             console.error('Error checking conversation:', error);
             return;
@@ -382,12 +438,12 @@ function storeConversationHistory(sessionId, message, response) {
 
         let conversationId;
         if (results.length > 0) {
-            // Conversation exists, use its ID
+            // Conversation exists for today, use its ID
             conversationId = results[0].id;
         } else {
-            // No conversation exists, create a new one
-            const createConversationQuery = 'INSERT INTO conversations (session_id, timestamp) VALUES (?, NOW())';
-            connection.query(createConversationQuery, [sessionId], (error, result) => {
+            // No conversation exists for today, create a new one
+            const createConversationQuery = 'INSERT INTO conversations (user_id, timestamp) VALUES (?, NOW())';
+            connection.query(createConversationQuery, [userId], (error, result) => {
                 if (error) {
                     console.error('Error creating conversation:', error);
                     return;
@@ -397,7 +453,7 @@ function storeConversationHistory(sessionId, message, response) {
         }
 
         // Store the message and response
-        const storeMessageQuery = 'INSERT INTO messages (conversation_id, message, response) VALUES (?, ?, ?)';
+        const storeMessageQuery = 'INSERT INTO messages (conversation_id, message, response, timestamp) VALUES (?, ?, ?, NOW())';
         connection.query(storeMessageQuery, [conversationId, message, response], (error) => {
             if (error) {
                 console.error('Error storing message:', error);
@@ -406,15 +462,38 @@ function storeConversationHistory(sessionId, message, response) {
     });
 }
 // Route to add a new question
-app.post('/add-question', (req, res) => {
+
+app.post('/add-question', upload.single('image'), (req, res) => {
+    console.log('Received request to add question');
+    console.log('Request body:', req.body);
+    console.log('File:', req.file);
+
     const { question, answer, keywords, department } = req.body;
-    const query = 'INSERT INTO faq (question, answer, keywords, department) VALUES (?, ?, ?, ?)';
-    connection.query(query, [question, answer, keywords, department], (error, results) => {
+    let imageData = null;
+
+    if (req.file) {
+        imageData = req.file.buffer;
+    }
+
+    const query = 'INSERT INTO faq (question, answer, keywords, department, image_data) VALUES (?, ?, ?, ?, ?)';
+    connection.query(query, [question, answer, keywords, department, imageData], (error, results) => {
         if (error) {
             console.error('Error adding question:', error);
-            return res.status(500).json({ error: 'Internal Server Error' });
+            return res.status(500).json({ success: false, message: 'Internal Server Error' });
         }
-        res.json({ success: true });
+        res.json({ success: true, message: 'Question added successfully' });
+    });
+});
+
+app.get('/image/:id', (req, res) => {
+    const query = 'SELECT image_data FROM faq WHERE id = ?';
+    connection.query(query, [req.params.id], (error, results) => {
+        if (error || results.length === 0) {
+            return res.status(404).send('Image not found');
+        }
+        const imageData = results[0].image_data;
+        const base64Image = Buffer.from(imageData).toString('base64');
+        res.send(`data:image/jpeg;base64,${base64Image}`);
     });
 });
 

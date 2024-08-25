@@ -68,8 +68,13 @@ document.addEventListener('DOMContentLoaded', function() {
 let selectedRows = new Set();
 
 function fetchQuestions(department) {
-    fetch(`http://localhost:3000/questions?department=${department || ''}`)
-        .then(response => response.json())
+    fetch(`http://localhost:3000/questions${department ? `?department=${department}` : ''}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             const questionsTable = document.getElementById('questionsTable');
             if (questionsTable) {
@@ -85,19 +90,54 @@ function fetchQuestions(department) {
                             <td>${record.answer}</td>
                             <td>${record.keywords}</td>
                             <td>${record.department}</td>
+                            <td>${record.image_data ? 
+                                `<img src="data:image/jpeg;base64,${record.image_data}" alt="Question image" width="50" height="50" class="clickable-image">` : 
+                                'No image'}
+                            </td>
                         `;
                         tbody.appendChild(row);
                     });
                     addCheckboxListeners();
+                    addImageClickListeners();
                     updateButtonStates();
-                } else {
-                    console.error('tbody not found in questionsTable');
                 }
-            } else {
-                console.error('questionsTable not found');
             }
         })
-        .catch(error => console.error('Error fetching questions:', error));
+        .catch(error => {
+            console.error('Error fetching questions:', error);
+            alert('Error fetching questions. Please check the console for details.');
+        });
+}
+
+function addImageClickListeners() {
+    const images = document.querySelectorAll('.clickable-image');
+    images.forEach(img => {
+        img.addEventListener('click', function() {
+            const fullSizeImg = document.createElement('img');
+            fullSizeImg.src = this.src;
+            fullSizeImg.style.maxWidth = '90%';
+            fullSizeImg.style.maxHeight = '90%';
+            
+            const modal = document.createElement('div');
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+            modal.style.display = 'flex';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            modal.style.zIndex = '1000';
+            
+            modal.appendChild(fullSizeImg);
+            document.body.appendChild(modal);
+            
+            modal.addEventListener('click', function() {
+                document.body.removeChild(modal);
+            });
+        });
+    });
 }
 
 function addCheckboxListeners() {
@@ -143,34 +183,61 @@ function updateButtonStates() {
 }
 
 function addQuestion() {
-    const newQuestion = document.getElementById('newQuestion');
-    const newAnswer = document.getElementById('newAnswer');
-    const newKeywords = document.getElementById('newKeywords');
-    const newDepartment = document.getElementById('newDepartment');
+    const form = document.getElementById('addQuestionForm');
+    const formData = new FormData(form);
 
-    if (newQuestion && newAnswer && newKeywords && newDepartment) {
-        const question = newQuestion.value;
-        const answer = newAnswer.value;
-        const keywords = newKeywords.value;
-        const department = newDepartment.value;
-
-        fetch('http://localhost:3000/add-question', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ question, answer, keywords, department })
-        })
-        .then(response => response.json())
-        .then(() => {
-            fetchQuestions(department);
-            const addQuestionForm = document.getElementById('addQuestionForm');
-            if (addQuestionForm) {
-                addQuestionForm.reset();
-            }
-        })
-        .catch(error => console.error('Error adding question:', error));
+    // Log form data for debugging
+    for (let [key, value] of formData.entries()) {
+        console.log(key, value instanceof File ? `File: ${value.name}` : value);
     }
+
+    // Validate form data
+    const question = formData.get('question');
+    const answer = formData.get('answer');
+    const keywords = formData.get('keywords');
+    const department = formData.get('department');
+    const imageFile = formData.get('image');
+
+    if (!question || !answer || !department) {
+        alert('Please fill in all required fields (Question, Answer, and Department)');
+        return;
+    }
+
+    // Show loading indicator
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton.textContent;
+    submitButton.disabled = true;
+    submitButton.textContent = 'Adding...';
+
+    fetch('http://localhost:3000/add-question', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            console.log('Question added successfully');
+            fetchQuestions(department);
+            form.reset();
+            alert('Question added successfully!');
+        } else {
+            throw new Error(data.message || 'Unknown error occurred');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding question:', error);
+        alert(`Error adding question: ${error.message}`);
+    })
+    .finally(() => {
+        // Reset button state
+        submitButton.disabled = false;
+        submitButton.textContent = originalButtonText;
+    });
 }
 
 function editQuestion(id) {

@@ -43,8 +43,7 @@ function sendMessage() {
         loadChatHistory();
     })
     .catch(error => {
-        console.error('Error sending message:', error);
-        displayMessage('Sorry, there was an error processing your request.', 'chatbot-message');
+        console.error('Error sending message:', error)
     });
 
     // Clear input field
@@ -52,7 +51,7 @@ function sendMessage() {
 }
 
 
-function displayMessage(message, className) {
+function displayMessage(message, className, isHtml = false) {
     const messagesDiv = document.getElementById('messages');
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', className);
@@ -70,19 +69,71 @@ function displayMessage(message, className) {
         profilePicSrc = 'path/to/chatbot-icon.png'; // Replace with actual chatbot icon
     }
     
+    let messageContent = isHtml ? message : escapeHtml(message);
+    let imageContent = '';
+    
+    // Check if the message contains an image tag
+    if (messageContent.includes('<img')) {
+        // Extract the image tag
+        const imgMatch = messageContent.match(/<img[^>]+>/);
+        if (imgMatch) {
+            imageContent = imgMatch[0].replace(/<img/, '<img width="300" height="300" class="clickable-image"');
+            // Remove the image tag from the message content
+            messageContent = messageContent.replace(imgMatch[0], '');
+        }
+    }
+    
     messageElement.innerHTML = `
         <img src="${profilePicSrc}" alt="${sender}" class="message-avatar" width="30" height="30">
         <div class="message-content">
             <span class="message-sender">${sender}</span>
-            <span class="message-text">${message}</span>
+            <div class="message-text">${messageContent}</div>
+            <div class="message-image">${imageContent}</div>
             <span class="message-timestamp">${timestamp}</span>
         </div>
     `;
     
     messagesDiv.appendChild(messageElement);
-
-    // Scroll to the bottom of the messages div
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    
+    // Add click listener to the new image
+    const newImage = messageElement.querySelector('.clickable-image');
+    if (newImage) {
+        newImage.addEventListener('click', function() {
+            const fullSizeImg = document.createElement('img');
+            fullSizeImg.src = this.src;
+            fullSizeImg.style.maxWidth = '90%';
+            fullSizeImg.style.maxHeight = '90%';
+            
+            const modal = document.createElement('div');
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+            modal.style.display = 'flex';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            modal.style.zIndex = '1000';
+            
+            modal.appendChild(fullSizeImg);
+            document.body.appendChild(modal);
+            
+            modal.addEventListener('click', function() {
+                document.body.removeChild(modal);
+            });
+        });
+    }
+}
+
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
 }
 
 function saveChatHistory(message, response) {
@@ -158,9 +209,15 @@ function startNewConversation() {
 // Add this to your DOMContentLoaded event listener
 document.getElementById('newConversationBtn').addEventListener('click', startNewConversation);
 //chathistory
+
 function loadChatHistory() {
     const token = localStorage.getItem('token');
-    const chatHistoryContent = document.getElementById('chat-history-content');
+    const chatHistoryContent = document.getElementById('chatHistoryByDate');
+
+    if (!chatHistoryContent) {
+        console.error('Chat history container not found');
+        return;
+    }
 
     if (!token) {
         chatHistoryContent.innerHTML = `
@@ -174,37 +231,50 @@ function loadChatHistory() {
             'Authorization': token
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
     .then(data => {
-        if (data.length === 0) {
+        if (Object.keys(data).length === 0) {
             chatHistoryContent.innerHTML = '<p>No chat history available.</p>';
         } else {
-            const groupedHistory = groupHistoryByDate(data);
-            const historyHtml = Object.entries(groupedHistory).map(([date, conversations]) => `
-                <div class="chat-history-date">
-                    <h6>${date}</h6>
-                    ${conversations.map((conversation, index) => `
-                        <div class="chat-history-conversation">
-                            <a href="#" class="conversation-toggle" data-conversation-id="${conversation.id}">Conversation ${index + 1}</a>
-                            <div class="conversation-content" style="display: none;">
-                                ${conversation.messages.map(item => `
-                                    <p><strong>You:</strong> ${item.message}</p>
-                                    <p><strong>4thROOM:</strong> ${item.response}</p>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `).join('');
-            chatHistoryContent.innerHTML = historyHtml;
+            chatHistoryContent.innerHTML = '';
+            const today = new Date();
+            const oneWeekAgo = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
 
-            // Add event listeners for toggling conversations
-            document.querySelectorAll('.conversation-toggle').forEach(toggle => {
-                toggle.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const content = this.nextElementSibling;
-                    content.style.display = content.style.display === 'none' ? 'block' : 'none';
-                });
+            Object.entries(data).forEach(([date, messages]) => {
+                const messageDate = new Date(date);
+                if (messageDate >= oneWeekAgo && messageDate <= today) {
+                    const dateDiv = document.createElement('div');
+                    dateDiv.className = 'chat-history-date mb-3';
+                    dateDiv.innerHTML = `
+                        <h6 class="date-toggle" data-date="${date}">${date} <span class="toggle-icon">▼</span></h6>
+                        <div class="date-content" style="display: none;">
+                            ${messages.map(item => `
+                                <p><strong>You:</strong> ${escapeHtml(item.message)}</p>
+                                <div><strong>4thROOM:</strong> ${parseResponse(item.response)}</div>
+                            `).join('')}
+                        </div>
+                    `;
+                    chatHistoryContent.appendChild(dateDiv);
+
+                    // Add event listener for toggling dates
+                    const toggle = dateDiv.querySelector('.date-toggle');
+                    toggle.addEventListener('click', function() {
+                        const content = this.nextElementSibling;
+                        const icon = this.querySelector('.toggle-icon');
+                        if (content.style.display === 'none') {
+                            content.style.display = 'block';
+                            icon.textContent = '▲';
+                        } else {
+                            content.style.display = 'none';
+                            icon.textContent = '▼';
+                        }
+                    });
+                }
             });
         }
     })
@@ -214,16 +284,59 @@ function loadChatHistory() {
     });
 }
 
-function groupHistoryByDate(history) {
-    const grouped = {};
-    history.forEach(item => {
-        const date = new Date(item.timestamp).toLocaleDateString();
-        if (!grouped[date]) {
-            grouped[date] = [];
-        }
-        grouped[date].push(item);
+function parseResponse(response) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(response, 'text/html');
+    const images = doc.getElementsByTagName('img');
+    
+    for (let img of images) {
+        const thumbnailSrc = img.src;
+        const fullSrc = img.src;
+        
+        img.outerHTML = `
+            <div class="image-container" style="margin-top: 10px;">
+                <img src="${thumbnailSrc}" 
+                     class="thumbnail-image" 
+                     data-full-src="${fullSrc}" 
+                     style="max-width: 100px; max-height: 100px; cursor: pointer;"
+                     onerror="this.onerror=null; this.src='/path/to/fallback-image.jpg'; this.style.display='none';">
+            </div>`;
+    }
+
+    return doc.body.innerHTML;
+}
+
+function openImageModal(src) {
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.zIndex = '1000';
+
+    const img = document.createElement('img');
+    img.src = src;
+    img.style.maxWidth = '90%';
+    img.style.maxHeight = '90%';
+    img.style.objectFit = 'contain';
+
+    img.onerror = function() {
+        this.onerror = null;
+        this.src = '/path/to/fallback-image.jpg';
+        alert('Failed to load the full-size image.');
+    };
+
+    modal.appendChild(img);
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', function() {
+        document.body.removeChild(modal);
     });
-    return grouped;
 }
 // Add event listener for Enter key
 document.getElementById('userInput').addEventListener('keypress', function(event) {
@@ -231,3 +344,6 @@ document.getElementById('userInput').addEventListener('keypress', function(event
         sendMessage();
     }
 });
+
+window.loadChatHistory = loadChatHistory;
+

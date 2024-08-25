@@ -135,16 +135,27 @@ function loadProfile() {
         localStorage.removeItem('userId');
         window.location.href = 'login.html';
     });
-    loadChatHistory();
+    loadFullChatHistory();
 }
 document.addEventListener('DOMContentLoaded', function() {
-    loadChatHistory();
+    loadFullChatHistory();
 });
 
-function loadChatHistory() {
+
+
+function loadFullChatHistory() {
     const token = localStorage.getItem('token');
+    const chatHistoryContent = document.getElementById('chatHistoryByDateForProfile');
+
+    if (!chatHistoryContent) {
+        console.error('Chat history container not found');
+        return;
+    }
+
     if (!token) {
-        document.getElementById('chatHistoryByDate').innerHTML = '<p>Please log in to view your chat history.</p>';
+        chatHistoryContent.innerHTML = `
+            <p>You have no history. Do you want to <a href="login.html">login</a> or <a href="signup.html">register</a>?</p>
+        `;
         return;
     }
 
@@ -153,81 +164,165 @@ function loadChatHistory() {
             'Authorization': token
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
     .then(data => {
-        const groupedHistory = groupHistoryByDate(data);
-        const historyHtml = Object.entries(groupedHistory).map(([date, conversations]) => `
-            <div class="chat-history-date mb-3">
-                <h6>${date}</h6>
-                ${conversations.map((conversation, index) => `
-                    <div class="chat-history-conversation mb-2">
-                        <a href="#" class="conversation-toggle" data-conversation-id="${conversation.id}">Conversation ${index + 1}</a>
-                        <button class="btn btn-sm btn-danger delete-conversation" data-conversation-id="${conversation.id}">Delete</button>
-                        <div class="conversation-content" style="display: none;">
-                            ${conversation.messages.map(item => `
-                                <p><strong>You:</strong> ${item.message}</p>
-                                <p><strong>4thROOM:</strong> ${item.response}</p>
-                            `).join('')}
-                        </div>
+        if (Object.keys(data).length === 0) {
+            chatHistoryContent.innerHTML = '<p>No chat history available.</p>';
+        } else {
+            chatHistoryContent.innerHTML = '';
+            Object.entries(data).forEach(([date, messages]) => {
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'chat-history-date mb-3';
+                dateDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="date-toggle" data-date="${date}">${date} <span class="toggle-icon">▼</span></h6>
+                        <button class="btn btn-sm btn-danger delete-date" data-date="${date}">Delete Date</button>
                     </div>
-                `).join('')}
-            </div>
-        `).join('');
-        document.getElementById('chatHistoryByDate').innerHTML = historyHtml;
+                    <div class="date-content" style="display: none;">
+                        ${messages.map(item => `
+                            <div class="message-group">
+                                <p><strong>You:</strong> ${escapeHtml(item.message)}</p>
+                                <div><strong>4thROOM:</strong> ${parseResponse(item.response)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                chatHistoryContent.appendChild(dateDiv);
 
-        // Add event listeners for toggling conversations
-        document.querySelectorAll('.conversation-toggle').forEach(toggle => {
-            toggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                const content = this.nextElementSibling.nextElementSibling;
-                content.style.display = content.style.display === 'none' ? 'block' : 'none';
-            });
-        });
+                // Add event listener for toggling dates
+                const toggle = dateDiv.querySelector('.date-toggle');
+                toggle.addEventListener('click', function() {
+                    const content = this.parentElement.nextElementSibling;
+                    const icon = this.querySelector('.toggle-icon');
+                    if (content.style.display === 'none') {
+                        content.style.display = 'block';
+                        icon.textContent = '▲';
+                    } else {
+                        content.style.display = 'none';
+                        icon.textContent = '▼';
+                    }
+                });
 
-        // Add event listeners for deleting conversations
-        document.querySelectorAll('.delete-conversation').forEach(button => {
-            button.addEventListener('click', function() {
-                deleteConversation(this.dataset.conversationId);
+                // Add event listener for delete button
+                const deleteButton = dateDiv.querySelector('.delete-date');
+                deleteButton.addEventListener('click', function() {
+                    const dateToDelete = this.getAttribute('data-date');
+                    if (confirm(`Are you sure you want to delete all conversations for ${dateToDelete}?`)) {
+                        deleteConversationsByDate(dateToDelete);
+                    }
+                });
             });
-        });
+        }
     })
     .catch(error => {
         console.error('Error loading chat history:', error);
-        document.getElementById('chatHistoryByDate').innerHTML = '<p>Failed to load chat history.</p>';
+        chatHistoryContent.innerHTML = '<p>Failed to load chat history.</p>';
     });
 }
 
-function groupHistoryByDate(history) {
-    const grouped = {};
-    history.forEach(item => {
-        const date = new Date(item.timestamp).toLocaleDateString();
-        if (!grouped[date]) {
-            grouped[date] = [];
-        }
-        grouped[date].push(item);
+
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+function parseResponse(response) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(response, 'text/html');
+    const images = doc.getElementsByTagName('img');
+    
+    for (let img of images) {
+        const thumbnailSrc = img.src;
+        const fullSrc = img.src;
+        
+        img.outerHTML = `
+            <div class="image-container" style="margin-top: 10px;">
+                <img src="${thumbnailSrc}" 
+                     class="thumbnail-image" 
+                     data-full-src="${fullSrc}" 
+                     style="max-width: 100px; max-height: 100px; cursor: pointer;"
+                     onerror="this.onerror=null; this.src='/path/to/fallback-image.jpg'; this.style.display='none';">
+            </div>`;
+    }
+
+    return doc.body.innerHTML;
+}
+function openImageModal(src) {
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.zIndex = '1000';
+
+    const img = document.createElement('img');
+    img.src = src;
+    img.style.maxWidth = '90%';
+    img.style.maxHeight = '90%';
+    img.style.objectFit = 'contain';
+
+    img.onerror = function() {
+        this.onerror = null;
+        this.src = '/path/to/fallback-image.jpg';
+        alert('Failed to load the full-size image.');
+    };
+
+    modal.appendChild(img);
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', function() {
+        document.body.removeChild(modal);
     });
-    return grouped;
 }
 
-function deleteConversation(conversationId) {
+function deleteConversationsByDate(date) {
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) {
+        alert('You must be logged in to delete conversations.');
+        return;
+    }
 
-    fetch(`http://localhost:3000/delete-conversation/${conversationId}`, {
+    // Format the date as 'YYYY-MM-DD'
+    const formattedDate = new Date(date).toISOString().split('T')[0];
+
+    fetch(`http://localhost:3000/delete-conversations-by-date/${formattedDate}`, {
         method: 'DELETE',
         headers: {
-            'Authorization': token
+            'Authorization': token,
+            'Content-Type': 'application/json'
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            loadChatHistory();
+            alert('Conversations deleted successfully.');
+            loadFullChatHistory(); // Reload the chat history after deletion
         } else {
-            alert('Failed to delete conversation: ' + data.error);
+            alert('Failed to delete conversations: ' + data.message);
         }
     })
-    .catch(error => console.error('Error deleting conversation:', error));
+    .catch(error => {
+        console.error('Error deleting conversations:', error);
+        alert('Failed to delete conversations. Please try again.');
+    });
 }
 
 // Check if user is logged in

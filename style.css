@@ -349,15 +349,51 @@ body {
 
 .message-text {
     word-wrap: break-word;
-}
+    white-space: pre-wrap;
+    margin-bottom: 10px;
 
+}
+.message-image {
+    margin-bottom: 5px;
+}
 .message-timestamp {
     font-size: 0.8rem;
     color: #6c757d;
     align-self: flex-end;
     margin-top: 0.25rem;
 }
+.message-text img {
+    max-width: none;
+    height: auto;
+    width: auto;
+    margin-top: 10px;
+}
+.clickable-image {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
 
+.clickable-image:hover {
+    transform: scale(1.1);
+}
+.date-toggle {
+    cursor: pointer;
+}
+
+.date-toggle:hover {
+    text-decoration: underline;
+}
+
+.toggle-icon {
+    font-size: 0.8em;
+    margin-left: 5px;
+}
+
+.date-content {
+    margin-left: 15px;
+    border-left: 2px solid #ccc;
+    padding-left: 10px;
+}
 #input-container {
     padding: 1rem;
     background-color: #ffffff;
@@ -373,7 +409,9 @@ body {
     color: white;
     border: none;
 }
-
+#chat-history-sidebar {
+    overflow-y: auto;
+}
 #sendButton:hover {
     background-color: #0056b3;
 }
@@ -387,7 +425,8 @@ body {
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .chat-history-sidebar {
-        width: 100%;
+        width: 30%;
+        min-width: 300px;
     }
 
     .chat-main {
