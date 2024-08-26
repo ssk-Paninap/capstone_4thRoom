@@ -237,12 +237,8 @@ app.post('/chatbot', verifyToken, (req, res) => {
                 answers.forEach(match => {
                     if (match.confidence > 0.8) {
                         response += match.response + ' ';
-                    } else if (match.confidence > 0.6) {
-                        response += `I think this might help: ${match.response} `;
-                    } else {
-                        response += "I'm not entirely sure, but here's what I found: " + match.response + ' ';
-                    }
-                    
+                    } 
+              
                     if (match.imageId) {
                         imagesToProcess.push(match.imageId);
                     }
@@ -323,24 +319,31 @@ function improvedFindBestMatch(userQuestion, faqResults, threshold) {
     const userQuestionStems = userQuestionTokens.map(token => stemmer.stem(token));
 
     faqResults.forEach(record => {
-        // Check keywords
+        // Check keywords with higher weight
         const keywordTokens = tokenizer.tokenize(record.keywords.toLowerCase());
         const keywordStems = keywordTokens.map(token => stemmer.stem(token));
         const keywordSimilarity = natural.JaroWinklerDistance(userQuestionStems.join(' '), keywordStems.join(' '));
 
-        // Check question
+        // Check question with lower weight
         const questionTokens = tokenizer.tokenize(record.question.toLowerCase());
         const questionStems = questionTokens.map(token => stemmer.stem(token));
         const questionSimilarity = natural.JaroWinklerDistance(userQuestionStems.join(' '), questionStems.join(' '));
 
-        // Use the higher of the two similarities
-        const overallSimilarity = Math.max(keywordSimilarity, questionSimilarity);
+        // Calculate overall similarity with higher weight on keywords
+        const overallSimilarity = (keywordSimilarity * 0.7) + (questionSimilarity * 0.3);
 
-        if (overallSimilarity > bestMatch.score) {
-            bestMatch.score = overallSimilarity;
+        // Check for exact keyword matches
+        const exactKeywordMatches = keywordStems.filter(stem => userQuestionStems.includes(stem)).length;
+        const keywordMatchBonus = exactKeywordMatches / keywordStems.length;
+
+        // Combine similarity and exact matches
+        const finalScore = overallSimilarity + keywordMatchBonus;
+
+        if (finalScore > bestMatch.score) {
+            bestMatch.score = finalScore;
             bestMatch.response = record.answer;
-            bestMatch.confidence = overallSimilarity;
-            if (record.image_data) {  // Only include image if it exists
+            bestMatch.confidence = finalScore;
+            if (record.image_data) {
                 bestMatch.imageId = record.id;
             }
         }

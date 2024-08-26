@@ -227,7 +227,11 @@ function loadFullChatHistory() {
 
 
 function escapeHtml(unsafe) {
+    if (unsafe === undefined || unsafe === null) {
+        return '';
+    }
     return unsafe
+         .toString()
          .replace(/&/g, "&amp;")
          .replace(/</g, "&lt;")
          .replace(/>/g, "&gt;")
