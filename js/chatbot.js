@@ -11,18 +11,26 @@ function displayWelcomeMessage() {
 
 function sendMessage() {
     const userInput = document.getElementById('userInput').value.trim();
-    
+
     if (userInput === '') return;
 
     displayMessage(userInput, 'user-message');
 
+    // Prepare headers
+    const headers = {
+        'Content-Type': 'application/json'
+    };
+
+    // Add token to headers if available
+    const token = localStorage.getItem('token');
+    if (token) {
+        headers['Authorization'] = token;
+    }
+
     // Send message to server
     fetch('http://localhost:3000/chatbot', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': localStorage.getItem('token')
-        },
+        headers: headers,
         body: JSON.stringify({ 
             message: userInput,
             sessionId: getSessionId()
@@ -35,15 +43,17 @@ function sendMessage() {
         } else {
             displayMessage(data.answer, 'chatbot-message');
         }
-        
-        // Save chat history
-        saveChatHistory(userInput, data.answer);
-        
-        // Reload chat history
-        loadChatHistory();
+
+        // Save chat history only if user is logged in
+        if (token) {
+            saveChatHistory(userInput, data.answer);
+            // Reload chat history
+            loadChatHistory();
+        }
     })
     .catch(error => {
         console.error('Error sending message:', error)
+        displayMessage("I'm sorry, there was an error processing your request. Please try again later.", 'chatbot-message');
     });
 
     // Clear input field
@@ -225,7 +235,7 @@ function loadChatHistory() {
 
     if (!token) {
         chatHistoryContent.innerHTML = `
-            <p>You have no history. Do you want to <a href="login.html">login</a> or <a href="signup.html">register</a>?</p>
+            <p>You have no history. Do you want to <a href="user-login.html">login</a> or <a href="user-signup.html">register</a>?</p>
         `;
         return;
     }

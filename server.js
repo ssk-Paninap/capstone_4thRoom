@@ -46,6 +46,34 @@ const verifyToken = (req, res, next) => {
         next();
     });
 };
+
+const verifyAdminToken = (req, res, next) => {
+    const token = req.headers['authorization'];
+    if (!token) return res.status(403).json({ error: 'No token provided' });
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(401).json({ error: 'Failed to authenticate token' });
+        if (decoded.role !== 'primary_admin' && decoded.role !== 'secondary_admin') {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        req.userId = decoded.id;
+        next();
+    });
+};
+const verifyPrimaryAdminToken = (req, res, next) => {
+    const token = req.headers['authorization'];
+    if (!token) return res.status(403).json({ error: 'No token provided' });
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(401).json({ error: 'Failed to authenticate token' });
+        if (decoded.role !== 'primary_admin') {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        req.userId = decoded.id;
+        next();
+    });
+};
+
 // Configure multer for file upload
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -62,7 +90,255 @@ const upload = multer({
         fileSize: 5 * 1024 * 1024 // limit file size to 5MB
     }
 });
+//admin codes
 
+// Admin signup route
+app.post('/admin-signup', async (req, res) => {
+    const { name, email, password, role } = req.body;
+
+    // Check if user already exists
+    const checkUserQuery = 'SELECT * FROM users WHERE email = ?';
+    connection.query(checkUserQuery, [email], async (error, results) => {
+        if (error) {
+            console.error('Error checking user:', error);
+            return res.status(500).json({ success: false, message: 'Internal Server Error' });
+        }
+
+        if (results.length > 0) {
+            return res.status(400).json({ success: false, message: 'User already exists' });
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const query = 'INSERT INTO users (name, email, password, role, user_type) VALUES (?, ?, ?, ?, ?)';
+        connection.query(query, [name, email, hashedPassword, role, 'employee'], (error, results) => {
+            if (error) {
+                console.error('Error inserting user:', error);
+                return res.status(500).json({ success: false, message: 'Internal Server Error' });
+            }
+            res.json({ success: true });
+        });
+    });
+});
+
+
+// Admin login route
+app.post('/admin-login', (req, res) => {
+    const { email, password } = req.body;
+
+    const query = 'SELECT * FROM users WHERE email = ? AND role IN ("primary_admin", "secondary_admin")';
+    connection.query(query, [email], async (error, results) => {
+        if (error) {
+            console.error('Error fetching admin:', error);
+            return res.status(500).json({ success: false, message: 'Internal Server Error' });
+        }
+
+        if (results.length > 0) {
+            const admin = results[0];
+            const isMatch = await bcrypt.compare(password, admin.password);
+            if (isMatch) {
+                const token = jwt.sign({ id: admin.id, role: admin.role }, JWT_SECRET, { expiresIn: '1h' });
+                res.json({ success: true, token: token, userId: admin.id, role: admin.role });
+            } else {
+                res.json({ success: false, message: 'Invalid password' });
+            }
+        } else {
+            res.json({ success: false, message: 'Admin not found' });
+        }
+    });
+});
+
+app.post('/add-secondary-admin', verifyPrimaryAdminToken, async (req, res) => {
+    const { name, email, password } = req.body;
+
+    // Check if user already exists
+    const checkUserQuery = 'SELECT * FROM users WHERE email = ?';
+    connection.query(checkUserQuery, [email], async (error, results) => {
+        if (error) {
+            console.error('Error checking user:', error);
+            return res.status(500).json({ success: false, message: 'Internal Server Error' });
+        }
+
+        if (results.length > 0) {
+            return res.status(400).json({ success: false, message: 'User already exists' });
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const query = 'INSERT INTO users (name, email, password, role, user_type) VALUES (?, ?, ?, ?, ?)';
+        connection.query(query, [name, email, hashedPassword, 'secondary_admin', 'employee'], (error, results) => {
+            if (error) {
+                console.error('Error inserting user:', error);
+                return res.status(500).json({ success: false, message: 'Internal Server Error' });
+            }
+            res.json({ success: true, message: 'Secondary admin added successfully' });
+        });
+    });
+});
+
+app.get('/secondary-admins', verifyPrimaryAdminToken, (req, res) => {
+    const query = 'SELECT id, name, email FROM users WHERE role = "secondary_admin"';
+    connection.query(query, (error, results) => {
+        if (error) {
+            console.error('Error fetching secondary admins:', error);
+            return res.status(500).json({ success: false, message: 'Internal Server Error' });
+        }
+        res.json({ success: true, admins: results });
+    });
+});
+
+// Route to delete a secondary admin (only accessible by primary admin)
+app.delete('/delete-secondary-admin/:id', verifyPrimaryAdminToken, (req, res) => {
+    const adminId = req.params.id;
+    const query = 'DELETE FROM users WHERE id = ? AND role = "secondary_admin"';
+    connection.query(query, [adminId], (error, results) => {
+        if (error) {
+            console.error('Error deleting secondary admin:', error);
+            return res.status(500).json({ success: false, message: 'Internal Server Error' });
+        }
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Admin not found or not a secondary admin' });
+        }
+        res.json({ success: true, message: 'Secondary admin deleted successfully' });
+    });
+});
+
+app.get('/admin/user-permissions/:userId', verifyAdminToken, (req, res) => {
+    const userId = req.params.userId;
+    const query = 'SELECT pp.name FROM user_page_permissions upp JOIN page_permissions pp ON upp.permission_id = pp.id WHERE upp.user_id = ?';
+    connection.query(query, [userId], (error, results) => {
+        if (error) {
+            console.error('Error fetching user permissions:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+        const permissions = results.map(row => row.name);
+        res.json({ permissions });
+    });
+});
+
+function checkPermission(requiredPermission) {
+    return (req, res, next) => {
+        const token = req.headers['authorization'];
+        if (!token) return res.status(403).json({ error: 'No token provided' });
+
+        jwt.verify(token, JWT_SECRET, (err, decoded) => {
+            if (err) return res.status(401).json({ error: 'Failed to authenticate token' });
+            
+            if (decoded.role === 'primary_admin') {
+                next(); // Primary admin has access to everything
+            } else if (decoded.role === 'secondary_admin') {
+                // Check if the user has the required permission
+                const query = 'SELECT 1 FROM user_page_permissions upp JOIN page_permissions pp ON upp.permission_id = pp.id WHERE upp.user_id = ? AND pp.name = ?';
+                connection.query(query, [decoded.id, requiredPermission], (error, results) => {
+                    if (error) {
+                        console.error('Error checking permissions:', error);
+                        return res.status(500).json({ error: 'Internal Server Error' });
+                    }
+                    if (results.length > 0) {
+                        next();
+                    } else {
+                        res.status(403).json({ error: 'Access denied' });
+                    }
+                });
+            } else {
+                res.status(403).json({ error: 'Not authorized' });
+            }
+        });
+    };
+}
+
+  
+// Protect all routes under /admin
+app.use('/admin', verifyAdminToken);
+
+app.get('/admin-login.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'components', 'admin-login.html'));
+});
+// Admin dashboard route
+app.get('/admin/dashboard', checkPermission('dashboard_view'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'components', 'admin', 'dashboard.html'));
+  });
+
+// Other admin routes
+app.get('/admin/bursar', checkPermission('bursar_access'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'components', 'admin', 'bursar.html'));
+});
+
+app.get('/admin/library', checkPermission('library_access'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'components', 'admin', 'libary.html'));
+  });
+
+  app.get('/admin/osa', checkPermission('osa_access'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'components', 'admin', 'osa.html'));
+  });
+
+  app.get('/admin/guidance', checkPermission('guidance_access'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'components', 'admin', 'guidance.html'));
+  });
+
+  app.get('/admin/registrar', checkPermission('registrar_access'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'components', 'admin', 'registrar.html'));
+  });
+
+  app.get('/admin/avp', checkPermission('avp_access'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'components', 'admin', 'avp.html'));
+  });
+
+  app.get('/admin/course-department', checkPermission('course_department_access'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'components', 'admin', 'course-department.html'));
+  });
+
+
+  app.get('/admin/manage-admin', checkPermission('manage_admin_access'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'components', 'admin', 'manage-admin.html'));
+  });
+
+
+  app.get('/admin/user-permissions/:userId', verifyPrimaryAdminToken, (req, res) => {
+    const userId = req.params.userId;
+    const query = `
+      SELECT pp.name
+      FROM user_page_permissions upp
+      JOIN page_permissions pp ON upp.permission_id = pp.id
+      WHERE upp.user_id = ?
+    `;
+    connection.query(query, [userId], (error, results) => {
+      if (error) {
+        console.error('Error fetching user permissions:', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+      }
+      const permissions = results.map(row => row.name);
+      res.json({ permissions });
+    });
+  });
+  
+  app.post('/admin/set-user-permissions', verifyPrimaryAdminToken, (req, res) => {
+    const { userId, permissions } = req.body;
+    
+    // First, delete existing permissions for the user
+    const deleteQuery = 'DELETE FROM user_page_permissions WHERE user_id = ?';
+    connection.query(deleteQuery, [userId], (error) => {
+      if (error) {
+        console.error('Error deleting existing permissions:', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+      }
+      
+      // Now, insert new permissions
+      const insertQuery = 'INSERT INTO user_page_permissions (user_id, permission_id) SELECT ?, id FROM page_permissions WHERE name IN (?)';
+      connection.query(insertQuery, [userId, permissions], (error) => {
+        if (error) {
+          console.error('Error setting new permissions:', error);
+          return res.status(500).json({ error: 'Internal Server Error' });
+        }
+        res.json({ success: true, message: 'Permissions updated successfully' });
+      });
+    });
+  });
+
+
+//profile codes
 app.post('/edit-profile', verifyToken, upload.single('profileImage'), (req, res) => {
     const userId = req.userId;
     const profileImage = req.file ? req.file.filename : null;
@@ -80,9 +356,39 @@ app.post('/edit-profile', verifyToken, upload.single('profileImage'), (req, res)
     });
 });
 
+app.get('/admin/check-permission/:permission', verifyToken, (req, res) => {
+    const requiredPermission = req.params.permission;
+    const userId = req.userId;
 
-// Serve uploaded files
+    if (req.userRole === 'primary_admin') {
+        return res.json({ hasPermission: true });
+    }
 
+    const query = 'SELECT 1 FROM user_page_permissions upp JOIN page_permissions pp ON upp.permission_id = pp.id WHERE upp.user_id = ? AND pp.name = ?';
+    connection.query(query, [userId, requiredPermission], (error, results) => {
+        if (error) {
+            console.error('Error checking permissions:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+        res.json({ hasPermission: results.length > 0 });
+    });
+});
+
+app.get('/admin/check-role', verifyToken, (req, res) => {
+    const query = 'SELECT role FROM users WHERE id = ?';
+    connection.query(query, [req.userId], (error, results) => {
+        if (error) {
+            console.error('Error checking user role:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+        if (results.length > 0) {
+            const isPrimaryAdmin = results[0].role === 'primary_admin';
+            res.json({ isPrimaryAdmin });
+        } else {
+            res.status(404).json({ error: 'User not found' });
+        }
+    });
+});
 
 // Route to handle sign-up
 app.post('/signup', async (req, res) => {
@@ -103,8 +409,9 @@ app.post('/signup', async (req, res) => {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const query = 'INSERT INTO users (name, email, password, gender, user_type) VALUES (?, ?, ?, ?, ?)';
-        connection.query(query, [name, email, hashedPassword, gender, userType], (error, results) => {
+        // Add 'regular_user' as the default role
+        const query = 'INSERT INTO users (name, email, password, gender, user_type, role) VALUES (?, ?, ?, ?, ?, ?)';
+        connection.query(query, [name, email, hashedPassword, gender, userType, 'regular_user'], (error, results) => {
             if (error) {
                 console.error('Error inserting user:', error);
                 return res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -192,9 +499,22 @@ app.get('/questions', (req, res) => {
 
 
 // Route to handle chatbot messages
-app.post('/chatbot', verifyToken, (req, res) => {
+app.post('/chatbot', (req, res) => {
     const { message } = req.body;
     const similarityThreshold = 0.6;
+    let userId = null;
+
+    // Check for authentication
+    const token = req.headers['authorization'];
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            userId = decoded.id;
+        } catch (err) {
+            console.error('Invalid token:', err);
+            // Don't return here, allow the request to continue
+        }
+    }
 
     // Perform sentiment analysis
     const sentimentResult = sentiment.analyze(message);
@@ -238,7 +558,7 @@ app.post('/chatbot', verifyToken, (req, res) => {
                     if (match.confidence > 0.8) {
                         response += match.response + ' ';
                     } 
-              
+
                     if (match.imageId) {
                         imagesToProcess.push(match.imageId);
                     }
@@ -298,9 +618,12 @@ app.post('/chatbot', verifyToken, (req, res) => {
             } else if (sentimentScore > 1) {
                 response += " I'm glad I could assist you!";
             }
-
-            // Store conversation history
-             storeConversationHistory(req.userId, message, response.trim());
+    
+            // Store conversation history only for authenticated users
+            if (userId) {
+                storeConversationHistory(userId, message, response.trim());
+            }
+    
             res.json({ answer: response.trim(), isHtml: true });
         }
     });
@@ -607,6 +930,7 @@ app.delete('/remove-event/:id', (req, res) => {
         }
     });
 });
+
 
 
 // Catch-all route for undefined paths

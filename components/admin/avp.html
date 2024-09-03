@@ -1,0 +1,190 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../dashboard_style.css" rel="stylesheet">
+</head>
+<body>
+  <div class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
+    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="#">AVP Panel</a>
+    <button class="navbar-toggler  position-absolute d-md-none collapsed"  type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="navbar-nav">
+        <div class="nav-item text-nowrap">
+            <a class="nav-link px-3"  id="logoutBtn" href="#">Logout</a>
+        </div>
+    </div>
+</div>
+
+
+    <div class="container-fluid">
+        <div class="row">
+          <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+            <div class="position-sticky pt-3 sidebar-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="dashboard.html">
+                            <span class="fs-4 d-none d-sm-inline">Main Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="course-department.html">
+                            <span class="fs-4 d-none d-sm-inline">Course Department</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="registrar.html">
+                            <span class="fs-4 d-none d-sm-inline">Registrar Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="library.html">
+                            <span class="fs-4 d-none d-sm-inline">Library Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="bursar.html">
+                            <span class="fs-4 d-none d-sm-inline">Bursar Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="osa.html">
+                            <span class="fs-4 d-none d-sm-inline">OSA Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="guidance.html">
+                            <span class="fs-4 d-none d-sm-inline">Guidance Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="avp.html">
+                            <span class="fs-4 d-none d-sm-inline">AVP Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="manage-admin.html">
+                            <span class="fs-4 d-none d-sm-inline">Admin Management</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+    <div class="dashboard-header d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3">
+        <div class="d-flex align-items-center">
+            <div class="school-logo">
+               
+            </div>
+            <h1 class="h2">AVP</h1>
+        </div>
+    </div>
+
+    <h2>Manage Questions</h2>
+    <div class="table-responsive" id="questionsTable" >
+        <div class="table-container">
+        <table class="table table-striped table-sm">
+  <thead>
+      <tr>
+         
+          <th>ID</th>
+          <th>Question</th>
+          <th>Answer</th>
+          <th>Keywords</th>
+          <th>Department</th>
+          <th>Image</th>
+      </tr>
+  </thead>
+  <tbody>
+      <!-- Table rows will be dynamically inserted here -->
+  </tbody>
+</table>
+</div>
+    </div>
+
+    <div id="tableActions" class="mt-3">
+        <button class="btn btn-primary" id="editButton" onclick="editSelected()">Edit Selected</button>
+        <button class="btn btn-danger " id="deleteButton" onclick="deleteSelected()">Delete Selected</button>
+    </div>
+
+    <h3 class="mt-4">Add New Question</h3>
+    <form id="addQuestionForm" enctype="multipart/form-data">
+      <div class="mb-3">
+          <label for="newQuestion" class="form-label">Question</label>
+          <input type="text" class="form-control" id="newQuestion" name="question" required>
+      </div>
+      <div class="mb-3">
+          <label for="newAnswer" class="form-label">Answer</label>
+          <textarea class="form-control" id="newAnswer" name="answer" required></textarea>
+      </div>
+      <div class="mb-3">
+          <label for="newKeywords" class="form-label">Keywords</label>
+          <input type="text" class="form-control" id="newKeywords" name="keywords">
+      </div>
+      <div class="mb-3">
+          <label for="newImage" class="form-label">Image</label>
+          <input type="file" class="form-control" id="newImage" name="image" accept="image/*">
+      </div>
+      <div class="mb-3">
+          <label for="newDepartment" class="form-label">avp</label>
+          <input type="text" class="form-control" id="newDepartment" name="department" value="avp" readonly>
+      </div>
+      <button type="submit" class="btn btn-primary">Add Question</button>
+  </form>
+
+</main>
+</div>
+</div>
+
+<div id="editPopup" class="popup-overlay">
+<div class="popup-content">
+<span class="close-popup">&times;</span>
+<h3>Edit Question</h3>
+<form id="editQuestionForm">
+  <input type="hidden" id="editId">
+  <div class="mb-3">
+      <input type="text" id="editQuestion" class="form-control" placeholder="Question" required>
+  </div>
+  <div class="mb-3">
+      <input type="text" id="editAnswer" class="form-control" placeholder="Answer" required >
+  </div>
+  <div class="mb-3">
+      <input type="text" id="editKeywords" class="form-control" placeholder="Keywords (comma-separated)" required>
+  </div>
+  <div class="mb-3">
+    <label for="editImage" class="form-label">Image</label>
+    <input type="file" class="form-control" id="editImage" accept="image/*">
+</div>
+  <div class="mb-3">
+      <select id="editDepartment" class="form-control" required>
+          <option value="avp">avp</option>
+      </select>
+  </div>
+  <button type="submit" class="btn btn-primary">Save Changes</button>
+</form>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../../js/admin.js"></script>
+<script src="../../js/admin-auth.js"></script>
+<script src="../../js/question.js"></script>
+<script src="../../js/admin-permission-check.js"></script>
+
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+      fetchQuestions('avp');
+  });
+</script>
+
+</body>
+</html>

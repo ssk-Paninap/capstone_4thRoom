@@ -42,7 +42,7 @@ function signup(event) {
     .then(data => {
         if (data.success) {
             alert('Sign up successful! Please log in.');
-            window.location.href = 'login.html';
+            window.location.href = 'user-login.html';
         } else {
             alert('Sign up failed: ' + data.message);
         }
@@ -104,7 +104,7 @@ function loadUserInfo() {
 function loadProfile() {
     const token = localStorage.getItem('token');
     if (!token) {
-        window.location.href = 'login.html';
+        window.location.href = 'user-login.html';
         return;
     }
 
@@ -133,7 +133,7 @@ function loadProfile() {
         console.error('Error:', error);
         localStorage.removeItem('token');
         localStorage.removeItem('userId');
-        window.location.href = 'login.html';
+        window.location.href = 'user-login.html';
     });
     loadFullChatHistory();
 }
@@ -154,7 +154,7 @@ function loadFullChatHistory() {
 
     if (!token) {
         chatHistoryContent.innerHTML = `
-            <p>You have no history. Do you want to <a href="login.html">login</a> or <a href="signup.html">register</a>?</p>
+            <p>You have no history. Do you want to <a href="user-login.html">login</a> or <a href="user-signup.html">register</a>?</p>
         `;
         return;
     }
@@ -332,7 +332,7 @@ function deleteConversationsByDate(date) {
 // Check if user is logged in
 function checkLoggedIn() {
     const token = localStorage.getItem('token');
-    const loginButton = document.querySelector('a[href="login.html"]');
+    const loginButton = document.querySelector('a[href="user-login.html"]');
     const logoutButton = document.getElementById('logoutButton');
     
     if (token) {
@@ -476,5 +476,5 @@ function logout() {
     localStorage.removeItem('userProfilePic');
 
     // Redirect to the homepage
-    window.location.href = 'index.html';
+    window.location.href = '../index.html';
 }

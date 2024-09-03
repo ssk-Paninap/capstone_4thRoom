@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>manage admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="../dashboard_style.css" rel="stylesheet">
+</head>
+<body>
+  <div class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
+    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="#">Admin manage</a>
+    <button class="navbar-toggler  position-absolute d-md-none collapsed"  type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="navbar-nav">
+        <div class="nav-item text-nowrap">
+            <a class="nav-link px-3"  id="logoutBtn" href="#">Logout</a>
+        </div>
+    </div>
+</div>
+
+
+    <div class="container-fluid">
+        <div class="row">
+          <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+            <div class="position-sticky pt-3 sidebar-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="dashboard.html">
+                            <span class="fs-4 d-none d-sm-inline">Main Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="course-department.html">
+                            <span class="fs-4 d-none d-sm-inline">Course Department</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="registrar.html">
+                            <span class="fs-4 d-none d-sm-inline">Registrar Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="library.html">
+                            <span class="fs-4 d-none d-sm-inline">Library Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="bursar.html">
+                            <span class="fs-4 d-none d-sm-inline">Bursar Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="osa.html">
+                            <span class="fs-4 d-none d-sm-inline">OSA Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="guidance.html">
+                            <span class="fs-4 d-none d-sm-inline">Guidance Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="avp.html">
+                            <span class="fs-4 d-none d-sm-inline">AVP Office</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="manage-admin.html">
+                            <span class="fs-4 d-none d-sm-inline">Admin Management</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="container mt-5">
+              <h2>Manage Admins</h2>
+              
+              <form id="addAdminForm" class="mb-4">
+                  <h3>Add New Admin</h3>
+                  <div class="mb-3">
+                      <input type="text" id="adminName" class="form-control" placeholder="Name" required>
+                  </div>
+                  <div class="mb-3">
+                      <input type="email" id="adminEmail" class="form-control" placeholder="Email" required>
+                  </div>
+                  <div class="mb-3">
+                      <input type="password" id="adminPassword" class="form-control" placeholder="Password" required>
+                  </div>
+                  <button type="submit" class="btn btn-primary">Add Admin</button>
+              </form>
+      
+              <h3>Secondary Admins</h3>
+              <table class="table">
+                  <thead>
+                      <tr>
+                          <th>Name</th>
+                          <th>Email</th>
+                          <th>Role</th>
+                          <th>Action</th>
+                      </tr>
+                  </thead>
+                  <tbody id="adminList">
+                      <!-- Admin list will be populated here -->
+                  </tbody>
+              </table>
+          </div>
+          <div class="modal fade" id="permissionsModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Permissions</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="permissionsForm">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="dashboard_view" id="dashboardPermission">
+                                <label class="form-check-label" for="dashboardPermission">
+                                    View Dashboard
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="bursar_access" id="bursarPermission">
+                                <label class="form-check-label" for="bursarPermission">
+                                    Bursar Access
+                                </label>
+                            </div>
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" value="course_department_access" id="CourseDPTPermission">
+                              <label class="form-check-label" for="CourseDPTPermission">
+                                Course department Access
+                              </label>
+                          </div>
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="guidance_access" id="GuidancePermission">
+                            <label class="form-check-label" for="GuidancePermission">
+                                Guidance Access
+                            </label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" value="library_access" id="libraryPermission">
+                          <label class="form-check-label" for="libraryPermission">
+                              Library Access
+                          </label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="osa_access" id="osaPermission">
+                        <label class="form-check-label" for="osaPermission">
+                            OSA Access
+                        </label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" value="registrar_access" id="registrarPermission">
+                      <label class="form-check-label" for="registrarPermission">
+                          Registrar Access
+                      </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="manage_admin_access" id="manageadminPermission">
+                    <label class="form-check-label" for="manageadminPermission">
+                        manage-admin Access
+                    </label>
+                </div>
+                            <!-- Add more checkboxes for other permissions -->
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="savePermissions">Save changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </main>
+            </div>
+
+            <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+            <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+            <script src="../../js/manageadmin.js"></script>
+            <script src="../../js/admin-auth.js"></script>
+            <script src="../../js/admin-permission-check.js"></script>
+
+</body>
+</html>
