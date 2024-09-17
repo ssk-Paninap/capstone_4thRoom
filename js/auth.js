@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (document.getElementById('profileName')) {
         loadProfile();
         setupEditProfile();
+        loadprofileChatHistory();
     }
     
     checkLoggedIn();
@@ -122,7 +123,7 @@ function loadProfile() {
         
         const profileImage = document.getElementById('profileImage');
         if (data.profile_image) {
-            profileImage.src = `http://localhost:3000/uploads/${data.profile_image}`;
+            profileImage.src = data.profile_image; // This is now the base64 data
             profileImage.alt = "Profile Picture";
         } else {
             profileImage.src = "https://via.placeholder.com/150";
@@ -135,15 +136,12 @@ function loadProfile() {
         localStorage.removeItem('userId');
         window.location.href = 'user-login.html';
     });
-    loadFullChatHistory();
+    loadprofileChatHistory();
 }
-document.addEventListener('DOMContentLoaded', function() {
-    loadFullChatHistory();
-});
 
 
 
-function loadFullChatHistory() {
+function loadprofileChatHistory() {
     const token = localStorage.getItem('token');
     const chatHistoryContent = document.getElementById('chatHistoryByDateForProfile');
 
@@ -318,7 +316,7 @@ function deleteConversationsByDate(date) {
     .then(data => {
         if (data.success) {
             alert('Conversations deleted successfully.');
-            loadFullChatHistory(); // Reload the chat history after deletion
+            loadprofileChatHistory(); // Reload the chat history after deletion
         } else {
             alert('Failed to delete conversations: ' + data.message);
         }
@@ -355,48 +353,52 @@ function checkLoggedIn() {
 // Function to set up edit profile functionality
 let cropper;
 
- function setupEditProfile() {
-        const editProfileBtn = document.getElementById('editProfileBtn');
-        const editProfileModal = document.getElementById('editProfileModal');
-        const editProfileForm = document.getElementById('editProfileForm');
-        const profileImageInput = document.getElementById('profileImageInput');
-        const cropperImage = document.getElementById('cropperImage');
-
-        if (editProfileBtn) {
-            editProfileBtn.addEventListener('click', () => {
-                const modal = new bootstrap.Modal(editProfileModal);
-                modal.show();
-            });
+function setupEditProfile() {
+    const editProfileBtn = document.getElementById('editProfileBtn');
+    const editProfileModal = document.getElementById('editProfileModal');
+  
+    if (editProfileBtn && editProfileModal) {
+      editProfileBtn.addEventListener('click', () => {
+        try {
+          const modal = new bootstrap.Modal(editProfileModal);
+          console.log('Modal instance:', modal); // Add this line
+          modal.show();
+          populateEditForm();
+        } catch (error) {
+          console.error('Error initializing modal:', error);
+          alert('There was an error opening the edit profile form. Please try again later.');
         }
+      });
+    } else {
+      console.error('Edit profile button or modal not found');
+    }
+    if (profileImageInput && cropperImage) {
+        profileImageInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (cropper) {
+                        cropper.destroy();
+                    }
+                    cropperImage.src = e.target.result;
+                    cropperImage.style.display = 'block';
+                    cropper = new Cropper(cropperImage, {
+                        aspectRatio: 1,
+                        viewMode: 1,
+                    });
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    } else {
+        console.error('Profile image input or cropper image element not found');
+    }
 
-        if (profileImageInput) {
-            profileImageInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        if (cropper) {
-                            cropper.destroy();
-                        }
-                        if (cropperImage) {
-                            cropperImage.src = e.target.result;
-                            cropperImage.style.display = 'block';
-                            cropper = new Cropper(cropperImage, {
-                                aspectRatio: 1,
-                                viewMode: 1,
-                            });
-                        } else {
-                            console.error('Cropper image element not found');
-                        }
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-
-        if (editProfileForm) {
-            editProfileForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
+    if (editProfileForm) {
+        editProfileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (validatePasswordChange()) {
                 const formData = new FormData(editProfileForm);
                 
                 if (cropper) {
@@ -407,39 +409,103 @@ let cropper;
                 } else {
                     submitEditProfileForm(formData);
                 }
-            });
+            }
+        });
+    } else {
+        console.error('Edit profile form not found');
+    }
+}
+
+function populateEditForm() {
+    const token = localStorage.getItem('token');
+    fetch('http://localhost:3000/profile', {
+        headers: {
+            'Authorization': token
         }
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('editName').value = data.name;
+        document.getElementById('editEmail').value = data.email;
+    })
+    .catch(error => console.error('Error fetching user data:', error));
+}
+
+function validatePasswordChange() {
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+
+    if (newPassword && !currentPassword) {
+        alert('Please enter your current password to change your password.');
+        return false;
     }
 
+    if (newPassword !== confirmNewPassword) {
+        alert('New password and confirm password do not match.');
+        return false;
+    }
+
+    return true;
+}
 
 // Function to submit edit profile form
+
 async function submitEditProfileForm(formData) {
     try {
         const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No authentication token found. Please log in again.');
+        }
+
+        // Convert the image file to base64
+        if (formData.get('profileImage')) {
+            const file = formData.get('profileImage');
+            const base64Image = await convertFileToBase64(file);
+            formData.set('profileImage', base64Image);
+        }
+
         const response = await fetch('http://localhost:3000/edit-profile', {
             method: 'POST',
             headers: {
-                'Authorization': token
+                'Authorization': token,
+                'Content-Type': 'application/json'
             },
-            body: formData
+            body: JSON.stringify(Object.fromEntries(formData))
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json();
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
 
         const result = await response.json();
         alert(result.message);
         loadProfile();
-        const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
-        modal.hide();
+        
+        const editProfileModal = document.getElementById('editProfileModal');
+        if (editProfileModal) {
+            const modal = bootstrap.Modal.getInstance(editProfileModal);
+            if (modal) {
+                modal.hide();
+            } else {
+                editProfileModal.style.display = 'none';
+            }
+        }
     } catch (error) {
         console.error('Error:', error);
         alert('An error occurred while updating your profile: ' + error.message);
     }
 }
 
-
+function convertFileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+}
 
 function checkLoggedIn() {
     const token = localStorage.getItem('token');
@@ -476,5 +542,5 @@ function logout() {
     localStorage.removeItem('userProfilePic');
 
     // Redirect to the homepage
-    window.location.href = '../index.html';
+    window.location.href = '/index.html';
 }

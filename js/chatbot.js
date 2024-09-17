@@ -38,16 +38,16 @@ function sendMessage() {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.isHtml) {
-            displayMessage(data.answer, 'chatbot-message', true);
-        } else {
-            displayMessage(data.answer, 'chatbot-message');
+        const messageContent = data.answer;
+        displayMessage(messageContent, 'chatbot-message', true);
+    
+        // Check if there is an image and append it
+        if (data.image) {
+            displayImage(data.image); 
         }
-
-        // Save chat history only if user is logged in
+    
         if (token) {
-            saveChatHistory(userInput, data.answer);
-            // Reload chat history
+            saveChatHistory(userInput, messageContent); // This will save chat history as usual
             loadChatHistory();
         }
     })
@@ -59,7 +59,57 @@ function sendMessage() {
     // Clear input field
     document.getElementById('userInput').value = '';
 }
+function displayImage(imageSrc) {
+    const messagesDiv = document.getElementById('messages');
+    
+    // Create the image element
+    const imageElement = document.createElement('img');
+    imageElement.src = imageSrc;
+    imageElement.alt = 'Chatbot Image';
+    imageElement.classList.add('chatbot-image');
+    imageElement.style.width = '300px'; // Thumbnail size
+    imageElement.style.height = '300px';
+    imageElement.style.cursor = 'pointer'; // Indicate that the image is clickable
 
+    // Add event listener to open the modal with the full-size image
+    imageElement.addEventListener('click', function() {
+        const fullSizeImg = document.createElement('img');
+        fullSizeImg.src = imageSrc;
+        fullSizeImg.style.maxWidth = '90%';
+        fullSizeImg.style.maxHeight = '90%';
+        fullSizeImg.style.objectFit = 'contain';
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        modal.style.display = 'flex';
+        modal.style.justifyContent = 'center';
+        modal.style.alignItems = 'center';
+        modal.style.zIndex = '1000';
+
+        // Append full-size image to modal
+        modal.appendChild(fullSizeImg);
+        document.body.appendChild(modal);
+
+        // Close modal when clicked
+        modal.addEventListener('click', function() {
+            document.body.removeChild(modal);
+        });
+    });
+
+    // Append the image to the message
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', 'chatbot-message');
+    messageElement.appendChild(imageElement);
+
+    messagesDiv.appendChild(messageElement);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
 
 function displayMessage(message, className, isHtml = false) {
     const messagesDiv = document.getElementById('messages');
@@ -107,34 +157,6 @@ function displayMessage(message, className, isHtml = false) {
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
     
     // Add click listener to the new image
-    const newImage = messageElement.querySelector('.clickable-image');
-    if (newImage) {
-        newImage.addEventListener('click', function() {
-            const fullSizeImg = document.createElement('img');
-            fullSizeImg.src = this.src;
-            fullSizeImg.style.maxWidth = '90%';
-            fullSizeImg.style.maxHeight = '90%';
-            
-            const modal = document.createElement('div');
-            modal.style.position = 'fixed';
-            modal.style.top = '0';
-            modal.style.left = '0';
-            modal.style.width = '100%';
-            modal.style.height = '100%';
-            modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
-            modal.style.display = 'flex';
-            modal.style.justifyContent = 'center';
-            modal.style.alignItems = 'center';
-            modal.style.zIndex = '1000';
-            
-            modal.appendChild(fullSizeImg);
-            document.body.appendChild(modal);
-            
-            modal.addEventListener('click', function() {
-                document.body.removeChild(modal);
-            });
-        });
-    }
 }
 
 function escapeHtml(unsafe) {

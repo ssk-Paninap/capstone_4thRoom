@@ -166,17 +166,11 @@ function addQuestion() {
     const form = document.getElementById('addQuestionForm');
     const formData = new FormData(form);
 
-    // Log form data for debugging
-    for (let [key, value] of formData.entries()) {
-        console.log(key, value instanceof File ? `File: ${value.name}` : value);
-    }
-
     // Validate form data
     const question = formData.get('question');
     const answer = formData.get('answer');
     const keywords = formData.get('keywords');
     const department = formData.get('department');
-    const imageFile = formData.get('image');
 
     if (!question || !answer || !department) {
         alert('Please fill in all required fields (Question, Answer, and Department)');
@@ -230,11 +224,18 @@ function editQuestion(id) {
                 const editQuestion = document.getElementById('editQuestion');
                 const editAnswer = document.getElementById('editAnswer');
                 const editKeywords = document.getElementById('editKeywords');
-                if (editId && editQuestion && editAnswer && editKeywords) {
+                const currentImage = document.getElementById('currentImage');
+                if (editId && editQuestion && editAnswer && editKeywords && currentImage) {
                     editId.value = question.id;
                     editQuestion.value = question.question;
                     editAnswer.value = question.answer;
                     editKeywords.value = question.keywords;
+                    if (question.image_data) {
+                        currentImage.src = `data:image/jpeg;base64,${question.image_data}`;
+                        currentImage.style.display = 'block';
+                    } else {
+                        currentImage.style.display = 'none';
+                    }
                     showPopup();
                 }
             } else {
@@ -276,19 +277,22 @@ function updateQuestion() {
     const editQuestion = document.getElementById('editQuestion');
     const editAnswer = document.getElementById('editAnswer');
     const editKeywords = document.getElementById('editKeywords');
+    const editImage = document.getElementById('editImage');
 
     if (editId && editQuestion && editAnswer && editKeywords) {
-        const id = editId.value;
-        const question = editQuestion.value;
-        const answer = editAnswer.value;
-        const keywords = editKeywords.value;
+        const formData = new FormData();
+        formData.append('id', editId.value);
+        formData.append('question', editQuestion.value);
+        formData.append('answer', editAnswer.value);
+        formData.append('keywords', editKeywords.value);
+        
+        if (editImage && editImage.files[0]) {
+            formData.append('image', editImage.files[0]);
+        }
 
         fetch('http://localhost:3000/update-question', {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ id, question, answer, keywords })
+            body: formData
         })
         .then(response => response.json())
         .then(() => {

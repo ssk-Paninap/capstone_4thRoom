@@ -26,6 +26,7 @@
     "mysql": "^2.18.1",
     "natural": "^7.1.0",
     "node-nlp": "^4.27.0",
+    "sanitize-html": "^2.13.0",
     "sentiment": "^5.0.2",
     "sharp": "^0.33.5",
     "string-similarity": "^4.0.4",

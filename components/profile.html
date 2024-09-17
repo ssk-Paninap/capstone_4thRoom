@@ -92,19 +92,34 @@
                 <div class="modal-body">
                   <form id="editProfileForm">
                     <div class="mb-3">
-                      <label for="username" class="form-label">Username</label>
-                      <input type="text" class="form-control" id="username" name="username" required>
+                        <label for="editName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="editName" name="name" required>
                     </div>
                     <div class="mb-3">
-                      <label for="profileImageInput" class="form-label">Profile Picture</label>
-                      <p>crop/adjust image</p>
-                      <input type="file" class="form-control" id="profileImageInput" name="profileImage" accept="image/*">
-                    </div>
-                    <div class="mb-3">
-                      <img id="cropperImage" src="" alt="Image to crop" style="max-width: 100%; display: none;">
-                    </div>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                  </form>
+                        <label for="editEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editEmail" name="email" required>
+                      </div>
+                      <div class="mb-3">
+                        <label for="currentPassword" class="form-label">Current Password (required to change password)</label>
+                        <input type="password" class="form-control" id="currentPassword" name="currentPassword">
+                      </div>
+                      <div class="mb-3">
+                        <label for="newPassword" class="form-label">New Password (leave blank to keep current password)</label>
+                        <input type="password" class="form-control" id="newPassword" name="newPassword">
+                      </div>
+                      <div class="mb-3">
+                        <label for="confirmNewPassword" class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" id="confirmNewPassword" name="confirmNewPassword">
+                      </div>
+                      <div class="mb-3">
+                        <label for="profileImageInput" class="form-label">Profile Picture</label>
+                        <input type="file" class="form-control" id="profileImageInput" name="profileImage" accept="image/*">
+                      </div>
+                      <div>
+                        <img id="cropperImage" src="" style="display: none; max-width: 100%;" alt="Image to crop">
+                      </div>
+                      <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
                 </div>
               </div>
             </div>

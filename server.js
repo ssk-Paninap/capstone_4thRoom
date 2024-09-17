@@ -3,7 +3,6 @@ const bodyParser = require('body-parser');
 const mysql = require('mysql');
 const cors = require('cors');
 const natural = require('natural');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
@@ -15,8 +14,8 @@ const sentiment = new Sentiment();
 app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
-app.use(express.json());
-app.use('/uploads', express.static('uploads'));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static('components'));
 app.use('/media', express.static('media'));
 // Database connection
@@ -24,7 +23,8 @@ const connection = mysql.createConnection({
     host: 'localhost',
     user: 'root',
     password: '',
-    database: 'schoolchatbot'
+    database: 'schoolchatbot',
+    connectTimeout: 60000 
 });
 
 connection.connect(error => {
@@ -93,12 +93,13 @@ const upload = multer({
 //admin codes
 
 // Admin signup route
+
 app.post('/admin-signup', async (req, res) => {
     const { name, email, password, role } = req.body;
 
     // Check if user already exists
     const checkUserQuery = 'SELECT * FROM users WHERE email = ?';
-    connection.query(checkUserQuery, [email], async (error, results) => {
+    connection.query(checkUserQuery, [email], (error, results) => {
         if (error) {
             console.error('Error checking user:', error);
             return res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -108,11 +109,9 @@ app.post('/admin-signup', async (req, res) => {
             return res.status(400).json({ success: false, message: 'User already exists' });
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
+        // Use plain text password
         const query = 'INSERT INTO users (name, email, password, role, user_type) VALUES (?, ?, ?, ?, ?)';
-        connection.query(query, [name, email, hashedPassword, role, 'employee'], (error, results) => {
+        connection.query(query, [name, email, password, role, 'employee'], (error, results) => {
             if (error) {
                 console.error('Error inserting user:', error);
                 return res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -128,7 +127,7 @@ app.post('/admin-login', (req, res) => {
     const { email, password } = req.body;
 
     const query = 'SELECT * FROM users WHERE email = ? AND role IN ("primary_admin", "secondary_admin")';
-    connection.query(query, [email], async (error, results) => {
+    connection.query(query, [email], (error, results) => {
         if (error) {
             console.error('Error fetching admin:', error);
             return res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -136,8 +135,7 @@ app.post('/admin-login', (req, res) => {
 
         if (results.length > 0) {
             const admin = results[0];
-            const isMatch = await bcrypt.compare(password, admin.password);
-            if (isMatch) {
+            if (password === admin.password) {
                 const token = jwt.sign({ id: admin.id, role: admin.role }, JWT_SECRET, { expiresIn: '1h' });
                 res.json({ success: true, token: token, userId: admin.id, role: admin.role });
             } else {
@@ -149,12 +147,12 @@ app.post('/admin-login', (req, res) => {
     });
 });
 
-app.post('/add-secondary-admin', verifyPrimaryAdminToken, async (req, res) => {
+app.post('/add-secondary-admin', verifyPrimaryAdminToken, (req, res) => {
     const { name, email, password } = req.body;
 
     // Check if user already exists
     const checkUserQuery = 'SELECT * FROM users WHERE email = ?';
-    connection.query(checkUserQuery, [email], async (error, results) => {
+    connection.query(checkUserQuery, [email], (error, results) => {
         if (error) {
             console.error('Error checking user:', error);
             return res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -164,11 +162,9 @@ app.post('/add-secondary-admin', verifyPrimaryAdminToken, async (req, res) => {
             return res.status(400).json({ success: false, message: 'User already exists' });
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
+        // Use plain text password
         const query = 'INSERT INTO users (name, email, password, role, user_type) VALUES (?, ?, ?, ?, ?)';
-        connection.query(query, [name, email, hashedPassword, 'secondary_admin', 'employee'], (error, results) => {
+        connection.query(query, [name, email, password, 'secondary_admin', 'employee'], (error, results) => {
             if (error) {
                 console.error('Error inserting user:', error);
                 return res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -295,6 +291,10 @@ app.get('/admin/library', checkPermission('library_access'), (req, res) => {
     res.sendFile(path.join(__dirname, 'components', 'admin', 'manage-admin.html'));
   });
 
+  app.get('/admin/changelog', checkPermission('changelog_access'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'components', 'admin', 'changelog.html'));
+  });
+
 
   app.get('/admin/user-permissions/:userId', verifyPrimaryAdminToken, (req, res) => {
     const userId = req.params.userId;
@@ -339,22 +339,77 @@ app.get('/admin/library', checkPermission('library_access'), (req, res) => {
 
 
 //profile codes
-app.post('/edit-profile', verifyToken, upload.single('profileImage'), (req, res) => {
-    const userId = req.userId;
-    const profileImage = req.file ? req.file.filename : null;
-
-    const query = 'UPDATE users SET profile_image = ? WHERE id = ?';
-    connection.query(query, [profileImage, userId], (error, results) => {
+app.get('/profile', verifyToken, (req, res) => {
+    const query = 'SELECT id, name, email, gender, user_type, profile_image FROM users WHERE id = ?';
+    connection.query(query, [req.userId], (error, results) => {
         if (error) {
-            console.error('Database error:', error);
-            return res.status(500).json({ success: false, message: 'Database error occurred' });
+            console.error('Error fetching user profile:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
-        if (results.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: 'User not found' });
+        if (results.length > 0) {
+            const user = results[0];
+            if (user.profile_image) {
+                user.profile_image = `data:image/jpeg;base64,${user.profile_image.toString('base64')}`;
+            }
+            res.json(user);
+        } else {
+            res.status(404).json({ error: 'User not found' });
         }
-        res.json({ success: true, message: 'Profile updated successfully!' });
     });
 });
+
+app.post('/edit-profile', verifyToken, (req, res) => {
+    const { name, email, currentPassword, newPassword, profileImage } = req.body;
+    const userId = req.userId;
+
+    // First, fetch the current user data
+    const getUserQuery = 'SELECT * FROM users WHERE id = ?';
+    connection.query(getUserQuery, [userId], (error, results) => {
+        if (error) {
+            return res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+
+        const user = results[0];
+
+        // Update name and email
+        let updateQuery = 'UPDATE users SET name = ?, email = ?';
+        let updateParams = [name, email];
+
+        // If current password is provided, verify it and update the password
+        if (currentPassword) {
+            if (currentPassword !== user.password) {
+                return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+            }
+
+            if (newPassword) {
+                updateQuery += ', password = ?';
+                updateParams.push(newPassword);
+            }
+        }
+
+        // Handle profile picture update
+        if (profileImage) {
+            const base64Data = profileImage.replace(/^data:image\/\w+;base64,/, "");
+            const buffer = Buffer.from(base64Data, 'base64');
+            updateQuery += ', profile_image = ?';
+            updateParams.push(buffer);
+        }
+
+        updateQuery += ' WHERE id = ?';
+        updateParams.push(userId);
+
+        connection.query(updateQuery, updateParams, (error) => {
+            if (error) {
+                console.error('Error updating profile:', error);
+                return res.status(500).json({ success: false, message: 'Failed to update profile' });
+            }
+
+            res.json({ success: true, message: 'Profile updated successfully' });
+        });
+    });
+});
+
+/////
 
 app.get('/admin/check-permission/:permission', verifyToken, (req, res) => {
     const requiredPermission = req.params.permission;
@@ -391,12 +446,12 @@ app.get('/admin/check-role', verifyToken, (req, res) => {
 });
 
 // Route to handle sign-up
-app.post('/signup', async (req, res) => {
+app.post('/signup', (req, res) => {
     const { name, email, password, gender, userType } = req.body;
 
     // Check if user already exists
     const checkUserQuery = 'SELECT * FROM users WHERE email = ?';
-    connection.query(checkUserQuery, [email], async (error, results) => {
+    connection.query(checkUserQuery, [email], (error, results) => {
         if (error) {
             console.error('Error checking user:', error);
             return res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -406,12 +461,9 @@ app.post('/signup', async (req, res) => {
             return res.status(400).json({ success: false, message: 'User already exists' });
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Add 'regular_user' as the default role
+        // Use plain text password
         const query = 'INSERT INTO users (name, email, password, gender, user_type, role) VALUES (?, ?, ?, ?, ?, ?)';
-        connection.query(query, [name, email, hashedPassword, gender, userType, 'regular_user'], (error, results) => {
+        connection.query(query, [name, email, password, gender, userType, 'regular_user'], (error, results) => {
             if (error) {
                 console.error('Error inserting user:', error);
                 return res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -426,7 +478,7 @@ app.post('/login', (req, res) => {
     const { email, password } = req.body;
 
     const query = 'SELECT * FROM users WHERE email = ?';
-    connection.query(query, [email], async (error, results) => {
+    connection.query(query, [email], (error, results) => {
         if (error) {
             console.error('Error fetching user:', error);
             return res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -434,8 +486,7 @@ app.post('/login', (req, res) => {
 
         if (results.length > 0) {
             const user = results[0];
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (isMatch) {
+            if (password === user.password) {
                 const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1h' });
                 res.json({ success: true, token: token, userId: user.id });
             } else {
@@ -446,29 +497,6 @@ app.post('/login', (req, res) => {
         }
     });
 });
-
-// Route to get user profile
-app.get('/profile', verifyToken, (req, res) => {
-    const query = 'SELECT id, name, email, gender, user_type, profile_image FROM users WHERE id = ?';
-    connection.query(query, [req.userId], (error, results) => {
-        if (error) {
-            console.error('Error fetching user profile:', error);
-            return res.status(500).json({ error: 'Internal Server Error' });
-        }
-        if (results.length > 0) {
-            res.json(results[0]);
-        } else {
-            res.status(404).json({ error: 'User not found' });
-        }
-    });
-});
-
-// NLP setup
-const tokenizer = new natural.WordTokenizer();
-const stemmer = natural.PorterStemmer;
-
-// Greetings array
-const greetings = ['hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening', 'howdy', 'hiya'];
 
 // Route to fetch questions
 app.get('/questions', (req, res) => {
@@ -496,15 +524,103 @@ app.get('/questions', (req, res) => {
         res.json(results);
     });
 });
+// NLP setup
+const tfidf = new natural.TfIdf();
+const tokenizer = new natural.WordTokenizer();
+const stemmer = natural.PorterStemmer;
+const greetings = ['hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening', 'howdy', 'hiya'];
+
+// Function to build the spell checker dictionary using FAQ results
+function initializeSpellChecker(faqResults) {
+    let dictionary = [];
+    faqResults.forEach(record => {
+        const keywordTokens = tokenizer.tokenize(record.keywords.toLowerCase());
+        dictionary = dictionary.concat(keywordTokens);
+    });
+    return new natural.Spellcheck(dictionary); // Initialize the spell checker with the dictionary
+}
+
+// Spell checking function to correct user input
+function correctSpelling(userQuery, spellCheck) {
+    const tokens = tokenizer.tokenize(userQuery.toLowerCase());
+    return tokens.map(token => {
+        if (spellCheck.isCorrect(token)) {
+            return token;
+        } else {
+            const suggestions = spellCheck.getCorrections(token, 1); // Get the best correction
+            return suggestions.length > 0 ? suggestions[0] : token;
+        }
+    }).join(' ');
+}
+
+// Function for improved keyword matching using both TF-IDF and Jaro-Winkler similarity
+function improvedFindBestMatchTFIDFWithSpellCheck(userQuestion, faqResults, spellCheck, threshold) {
+    let bestMatch = {
+        score: 0,
+        response: null,
+        confidence: 0,
+        imageBase64: null
+    };
+
+    // Correct spelling errors in the user's question
+    const correctedQuestion = correctSpelling(userQuestion, spellCheck);
+    const userQuestionTokens = tokenizer.tokenize(correctedQuestion.toLowerCase());
+    const userQuestionStems = userQuestionTokens.map(token => stemmer.stem(token));
+
+    // Populate TF-IDF with the FAQ data
+    faqResults.forEach(record => {
+        const keywordTokens = tokenizer.tokenize(record.keywords.toLowerCase());
+        const keywordStems = keywordTokens.map(token => stemmer.stem(token));
+        tfidf.addDocument(keywordStems.join(' '));
+    });
+
+    // Iterate through each FAQ entry and compute similarity scores
+    faqResults.forEach((record, index) => {
+        const keywordTokens = tokenizer.tokenize(record.keywords.toLowerCase());
+        const keywordStems = keywordTokens.map(token => stemmer.stem(token));
+
+        // Jaro-Winkler similarity
+        const keywordSimilarity = natural.JaroWinklerDistance(userQuestionStems.join(' '), keywordStems.join(' '));
+
+        // TF-IDF similarity
+        const tfidfScore = tfidf.tfidf(userQuestionStems.join(' '), index);
+
+        // Exact keyword match boosting
+        let exactMatchBonus = 0;
+        keywordTokens.forEach(keyword => {
+            if (userQuestionTokens.includes(keyword.toLowerCase())) {
+                exactMatchBonus += 0.7; // Boost for exact keyword matches
+            }
+        });
+
+        // Combine both similarity scores, boosting exact matches
+        const combinedScore = (keywordSimilarity * 0.6) + (tfidfScore * 0.4) + exactMatchBonus;
+
+        if (combinedScore > bestMatch.score) {
+            bestMatch.score = combinedScore;
+            bestMatch.response = record.answer;
+            bestMatch.confidence = combinedScore;
+
+            // Handle image data (BLOB) if available
+            if (record.image_data) {
+                const base64Image = Buffer.from(record.image_data).toString('base64');
+                bestMatch.imageBase64 = `data:image/jpeg;base64,${base64Image}`;
+            }
+        }
+    });
+
+    return bestMatch.score >= threshold ? bestMatch : null;
+}
 
 
-// Route to handle chatbot messages
+
+// Full Chatbot Route Handler with TF-IDF, Spell Checking, Sentiment Analysis, and Image Support
 app.post('/chatbot', (req, res) => {
     const { message } = req.body;
-    const similarityThreshold = 0.6;
+    const similarityThreshold = 0.7;
     let userId = null;
 
-    // Check for authentication
+    // Check for authentication token
     const token = req.headers['authorization'];
     if (token) {
         try {
@@ -512,7 +628,6 @@ app.post('/chatbot', (req, res) => {
             userId = decoded.id;
         } catch (err) {
             console.error('Invalid token:', err);
-            // Don't return here, allow the request to continue
         }
     }
 
@@ -520,20 +635,26 @@ app.post('/chatbot', (req, res) => {
     const sentimentResult = sentiment.analyze(message);
     const sentimentScore = sentimentResult.score;
 
-    // Define lowercaseMessage here, before it's used
+    // Normalize and tokenize the message
     const lowercaseMessage = message.toLowerCase();
 
+    // Fetch FAQ data from the database
     connection.query('SELECT * FROM faq', (error, results) => {
         if (error) {
             console.error('Error fetching questions:', error);
             return res.status(500).json({ error: 'Internal Server Error' });
         }
 
-        let response = '';
-        const containsGreeting = greetings.some(greeting => 
-            lowercaseMessage.split(/\s+/).includes(greeting)
-        );
+        const faqResults = results;
 
+        // Initialize spell checker with FAQ keywords
+        const spellCheck = initializeSpellChecker(faqResults);
+
+        let response = '';
+        let imageResponse = null;
+
+        // Check if the user's message contains a greeting
+        const containsGreeting = greetings.some(greeting => lowercaseMessage.split(/\s+/).includes(greeting));
         if (containsGreeting) {
             // Handle greeting based on sentiment
             if (sentimentScore > 0) {
@@ -545,145 +666,55 @@ app.post('/chatbot', (req, res) => {
             }
         }
 
-        // Only proceed to answer questions if the message contains more than just a greeting
+        // If the message has more than a greeting, find relevant FAQ answers
         if (!containsGreeting || lowercaseMessage.split(/\s+/).length > 1) {
-            const questions = splitIntoQuestions(message);
-            const answers = questions.map(question => improvedFindBestMatch(question, results, similarityThreshold))
-                                     .filter(match => match !== null);
+            const bestMatch = improvedFindBestMatchTFIDFWithSpellCheck(message, faqResults, spellCheck, similarityThreshold);
 
-            const imagesToProcess = [];
+            // If there's a match, add the answer and image to the response
+            if (bestMatch) {
+                response += bestMatch.response;
 
-            if (answers.length > 0) {
-                answers.forEach(match => {
-                    if (match.confidence > 0.8) {
-                        response += match.response + ' ';
-                    } 
-
-                    if (match.imageId) {
-                        imagesToProcess.push(match.imageId);
-                    }
-                });
-
-                // Process images after constructing the text response
-                if (imagesToProcess.length > 0) {
-                    const processImages = imagesToProcess.map(imageId => {
-                        return new Promise((resolve, reject) => {
-                            const imageQuery = 'SELECT image_data FROM faq WHERE id = ?';
-                            connection.query(imageQuery, [imageId], (error, results) => {
-                                if (error) reject(error);
-                                if (results.length > 0 && results[0].image_data) {
-                                    const imageData = results[0].image_data;
-                                    const base64Image = Buffer.from(imageData).toString('base64');
-                                    resolve(`<img src="data:image/jpeg;base64,${base64Image}" alt="Related image">`);
-                                } else {
-                                    resolve(''); // Resolve with empty string if image not found or null
-                                }
-                            });
-                        });
-                    });
-
-                    Promise.all(processImages)
-                        .then(imageHtmlArray => {
-                            response += imageHtmlArray.join(' ');
-                            finalize();
-                        })
-                        .catch(error => {
-                            console.error('Error processing images:', error);
-                            finalize();
-                        });
-                } else {
-                    finalize();
+                // If an image is available, include it in the response
+                if (bestMatch.imageBase64) {
+                    imageResponse = bestMatch.imageBase64;
                 }
-            } else if (!containsGreeting) {
-                // Handle no answers based on sentiment
+            } else {
+                // Handle case where no match is found based on sentiment
                 if (sentimentScore < -2) {
-                    response = "I'm sorry you're feeling frustrated. Let's try to find the information you need. Could you rephrase your question or specify which department you're asking about?";
+                    response = "I'm sorry you're feeling frustrated. Could you rephrase your question or specify which department you're asking about?";
                 } else if (sentimentScore > 2) {
-                    response = "I appreciate your positive attitude! I couldn't find a specific answer to your question. Could you provide more details about what you're looking for?";
+                    response = "I appreciate your positive attitude! I couldn't find a specific answer to your question. Could you provide more details?";
                 } else {
                     response = "I'm afraid I don't have specific information about that. Could you rephrase your question or provide more details?";
                 }
-                finalize();
-            } else {
-                finalize();
             }
-        } else {
-            finalize();
         }
 
-        function finalize() {
-            // Add sentiment-based closing
-            if (sentimentScore < -1) {
-                response += " I hope this information helps improve your day.";
-            } else if (sentimentScore > 1) {
-                response += " I'm glad I could assist you!";
-            }
-    
-            // Store conversation history only for authenticated users
-            if (userId) {
-                storeConversationHistory(userId, message, response.trim());
-            }
-    
-            res.json({ answer: response.trim(), isHtml: true });
+        // Add sentiment-based closing remarks
+        if (sentimentScore < -1) {
+            response += " I hope this information helps improve your day.";
+        } else if (sentimentScore > 1) {
+            response += " I'm glad I could assist you!";
+
         }
+
+        // Store conversation history for authenticated users
+        if (userId) {
+            storeConversationHistory(userId, message, response.trim());
+        }
+
+        // Send the response to the user, including the image if available
+        res.json({ answer: response.trim(), image: imageResponse });
     });
 });
 
 
-
-function improvedFindBestMatch(userQuestion, faqResults, threshold) {
-    let bestMatch = {
-        score: 0,
-        response: null,
-        confidence: 0
-    };
-
-    const userQuestionTokens = tokenizer.tokenize(userQuestion.toLowerCase());
-    const userQuestionStems = userQuestionTokens.map(token => stemmer.stem(token));
-
-    faqResults.forEach(record => {
-        // Check keywords with higher weight
-        const keywordTokens = tokenizer.tokenize(record.keywords.toLowerCase());
-        const keywordStems = keywordTokens.map(token => stemmer.stem(token));
-        const keywordSimilarity = natural.JaroWinklerDistance(userQuestionStems.join(' '), keywordStems.join(' '));
-
-        // Check question with lower weight
-        const questionTokens = tokenizer.tokenize(record.question.toLowerCase());
-        const questionStems = questionTokens.map(token => stemmer.stem(token));
-        const questionSimilarity = natural.JaroWinklerDistance(userQuestionStems.join(' '), questionStems.join(' '));
-
-        // Calculate overall similarity with higher weight on keywords
-        const overallSimilarity = (keywordSimilarity * 0.7) + (questionSimilarity * 0.3);
-
-        // Check for exact keyword matches
-        const exactKeywordMatches = keywordStems.filter(stem => userQuestionStems.includes(stem)).length;
-        const keywordMatchBonus = exactKeywordMatches / keywordStems.length;
-
-        // Combine similarity and exact matches
-        const finalScore = overallSimilarity + keywordMatchBonus;
-
-        if (finalScore > bestMatch.score) {
-            bestMatch.score = finalScore;
-            bestMatch.response = record.answer;
-            bestMatch.confidence = finalScore;
-            if (record.image_data) {
-                bestMatch.imageId = record.id;
-            }
-        }
-    });
-
-    if (bestMatch.score >= threshold) {
-        return bestMatch;
-    } else {
-        return null;
-    }
-}
-
-function splitIntoQuestions(message) {
+//function splitIntoQuestions(message) {
     // Split on common sentence-ending punctuation and question words
-    const splits = message.split(/[.!?,]|\s+(?:what|where|when|who|why|how|can|could|would|should|is|are|do|does|did|will|and|also)/i);
-    return splits.map(q => q.trim()).filter(q => q.length > 0);
-}
+  //  const splits = message.split(/[.!?,]|\s+(?:what|where|when|who|why|how|can|could|would|should|is|are|do|does|did|will|and|also)/i);
+  //  return splits.map(q => q.trim()).filter(q => q.length > 0);}
+
+
 app.post('/save-chat-history', verifyToken, (req, res) => {
     const { message, response } = req.body;
     const userId = req.userId; // This comes from the verifyToken middleware
@@ -736,20 +767,23 @@ app.get('/chat-history', verifyToken, (req, res) => {
 
 /////
 app.delete('/delete-conversations-by-date/:date', verifyToken, (req, res) => {
-    const date = req.params.date;
-    const query = 'DELETE c, m FROM conversations c JOIN messages m ON c.id = m.conversation_id WHERE DATE(c.timestamp) = ? AND c.user_id = ?';
-    connection.query(query, [date, req.userId], (error, results) => {
+    const date = req.params.date; // Format: YYYY-MM-DD
+    const userId = req.userId; // Ensure you have user ID from token
+
+    const query = `
+        DELETE m FROM messages m
+        JOIN conversations c ON m.conversation_id = c.id
+        WHERE DATE(c.timestamp) = ? AND c.user_id = ?
+    `;
+    
+    connection.query(query, [date, userId], (error, results) => {
         if (error) {
-            console.error('Error deleting conversations:', error);
+            console.error('Error deleting messages:', error);
             return res.status(500).json({ success: false, message: 'Internal Server Error' });
         }
-        if (results.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: 'No conversations found for this date' });
-        }
-        res.json({ success: true, message: 'Conversations deleted successfully' });
+        res.json({ success: true, message: 'Messages deleted successfully.' });
     });
 });
-
 
 function storeConversationHistory(userId, message, response) {
     const today = new Date().toISOString().split('T')[0];
@@ -789,6 +823,7 @@ function storeConversationHistory(userId, message, response) {
 }
 // Route to add a new question
 
+
 app.post('/add-question', upload.single('image'), (req, res) => {
     console.log('Received request to add question');
     console.log('Request body:', req.body);
@@ -807,6 +842,7 @@ app.post('/add-question', upload.single('image'), (req, res) => {
             console.error('Error adding question:', error);
             return res.status(500).json({ success: false, message: 'Internal Server Error' });
         }
+        logRecentUpdate('Added', 'Question', results.insertId, question);
         res.json({ success: true, message: 'Question added successfully' });
     });
 });
@@ -836,25 +872,45 @@ app.delete('/delete-question', (req, res) => {
             console.error('Error deleting questions:', error);
             return res.status(500).json({ error: 'Internal Server Error' });
         }
+        ids.forEach(id => logRecentUpdate('Deleted', 'Question', id, ''));
         res.json({ success: true, message: `Deleted ${results.affectedRows} question(s)` });
     });
 });
 
 // Route to update a question
-app.put('/update-question', (req, res) => {
+app.put('/update-question', upload.single('image'), (req, res) => {
     const { id, question, answer, keywords } = req.body;
-    const query = 'UPDATE faq SET question = ?, answer = ?, keywords = ? WHERE id = ?';
-    connection.query(query, [question, answer, keywords, id], (error, results) => {
+    let imageData = null;
+
+    if (req.file) {
+        imageData = req.file.buffer;
+    }
+
+    let query = 'UPDATE faq SET question = ?, answer = ?, keywords = ?';
+    let params = [question, answer, keywords];
+
+    if (imageData) {
+        query += ', image_data = ?';
+        params.push(imageData);
+    }
+
+    query += ' WHERE id = ?';
+    params.push(id);
+
+    connection.query(query, params, (error, results) => {
         if (error) {
             console.error('Error updating question:', error);
             return res.status(500).json({ error: 'Internal Server Error' });
         }
+        logRecentUpdate('Updated', 'Question', id, question);
         res.json({ success: true });
     });
 });
+
+
 //route of user to admin panel :-)
 app.get('/users', (req, res) => {
-    const query = 'SELECT id, name, email, gender, user_type FROM users';
+    const query = 'SELECT id, name, email, gender, user_type, password FROM users WHERE user_type IN ("visitor", "student")';
     connection.query(query, (error, results) => {
         if (error) {
             console.error('Error fetching users:', error);
@@ -864,74 +920,131 @@ app.get('/users', (req, res) => {
     });
 });
 
-app.delete('/users', (req, res) => {
-    const userIds = req.body.ids;
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-        return res.status(400).json({ success: false, message: 'Invalid user IDs' });
-    }
-
-    const query = 'DELETE FROM users WHERE id IN (?)';
-    connection.query(query, [userIds], (error, results) => {
+// Get a single user
+app.get('/users/:id', (req, res) => {
+    const userId = req.params.id;
+    const query = 'SELECT id, name, email, gender, user_type FROM users WHERE id = ?';
+    connection.query(query, [userId], (error, results) => {
         if (error) {
-            console.error('Error deleting users:', error);
+            console.error('Error fetching user:', error);
             return res.status(500).json({ success: false, message: 'Internal Server Error' });
         }
-        res.json({ success: true, message: 'Users deleted successfully' });
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        res.json({ success: true, user: results[0] });
     });
 });
 
-
-
-
-app.post('/post-event', upload.single('eventImage'), (req, res) => {
-    const { eventTitle, eventDescription, eventDate } = req.body;
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+// Update a user
+app.put('/update-user/:id', (req, res) => {
+    const { id } = req.params;
+    const { name, email, gender, user_type, password } = req.body;
     
-    // Remove the hardcoded userId
-    const sql = `INSERT INTO events (title, description, event_date, image_url, created_at) 
-                 VALUES (?, ?, ?, ?, NOW())`;
+    let query = 'UPDATE users SET name = ?, email = ?, gender = ?, user_type = ?';
+    let params = [name, email, gender, user_type];
 
-    connection.query(sql, [eventTitle, eventDescription, eventDate, imageUrl], (err, result) => {
-        if (err) {
-            console.error(err);
+    if (password) {
+        query += ', password = ?';
+        params.push(password);
+    }
+
+    query += ' WHERE id = ? AND role = "regular_user"';
+    params.push(id);
+
+    connection.query(query, params, (error, results) => {
+        if (error) {
+            console.error('Error updating user:', error);
+            return res.status(500).json({ success: false, message: 'Internal Server Error' });
+        }
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'User not found or not a regular user' });
+        }
+        res.json({ success: true, message: 'User updated successfully' });
+    });
+});
+
+// Delete a user
+app.delete('/delete-user/:id', (req, res) => {
+    const userId = req.params.id;
+    const query = 'DELETE FROM users WHERE id = ? AND role = "regular_user"';
+    connection.query(query, [userId], (error, results) => {
+        if (error) {
+            console.error('Error deleting user:', error);
+            return res.status(500).json({ success: false, message: 'Internal Server Error' });
+        }
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'User not found or not a regular user' });
+        }
+        res.json({ success: true, message: 'User deleted successfully' });
+    });
+});
+
+// Event routes (without authentication)
+app.post('/post-event', (req, res) => {
+    const { title, description, eventDate, location, eventImage } = req.body;
+    const query = 'INSERT INTO events (title, description, event_date, location, event_image) VALUES (?, ?, ?, ?, ?)';
+    connection.query(query, [title, description, eventDate, location, eventImage], (error, results) => {
+        if (error) {
             res.status(500).json({ success: false, message: 'Error posting event' });
         } else {
-            res.status(200).json({ success: true, message: 'Event posted successfully' });
+            logRecentUpdate('Added', 'Event', results.insertId, title);
+            res.json({ success: true, message: 'Event posted successfully' });
         }
     });
 });
 
+
 app.get('/events', (req, res) => {
-    const sql = 'SELECT * FROM events ORDER BY event_date DESC';
-    connection.query(sql, (err, results) => {
-        if (err) {
-            console.error('Database error:', err);
-            res.status(500).json({ error: 'Database error occurred' });
+    const query = 'SELECT * FROM events ORDER BY event_date DESC';
+    connection.query(query, (error, results) => {
+        if (error) {
+            res.status(500).json({ success: false, message: 'Error fetching events' });
         } else {
             res.json(results);
         }
     });
 });
 
-
 app.delete('/remove-event/:id', (req, res) => {
     const eventId = req.params.id;
-
-    const sql = 'DELETE FROM events WHERE id = ?';
-
-    connection.query(sql, [eventId], (err, result) => {
-        if (err) {
-            console.error(err);
-            res.status(500).json({ success: false, message: 'Error removing event' });
-        } else if (result.affectedRows === 0) {
-            res.status(404).json({ success: false, message: 'Event not found' });
+    const query = 'DELETE FROM events WHERE id = ?';
+    connection.query(query, [eventId], (error, results) => {
+        if (error) {
+            res.status(500).json({ success: false, message: 'Error deleting event' });
         } else {
-            res.status(200).json({ success: true, message: 'Event removed successfully' });
+            logRecentUpdate('Deleted', 'Event', eventId, '');
+            res.json({ success: true, message: 'Event deleted successfully' });
         }
     });
 });
 
+function logRecentUpdate(action, itemType, itemId, itemName) {
+    const query = 'INSERT INTO recent_updates (action, item_type, item_id, item_name) VALUES (?, ?, ?, ?)';
+    connection.query(query, [action, itemType, itemId, itemName], (error, results) => {
+        if (error) {
+            console.error('Error logging recent update:', error);
+        }
+    });
+}
 
+app.get('/recent-updates', (req, res) => {
+    const query = `
+        SELECT * FROM recent_updates
+        ORDER BY timestamp DESC
+        LIMIT 30
+    `;
+    connection.query(query, (error, results) => {
+        if (error) {
+            console.error('Error fetching recent updates:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+        const questionUpdates = results.filter(update => update.item_type === 'Question');
+        const eventUpdates = results.filter(update => update.item_type === 'Event');
+        const userUpdates = results.filter(update => update.item_type === 'User');
+        res.json({ questionUpdates, eventUpdates, userUpdates });
+    });
+});
 
 // Catch-all route for undefined paths
 app.use((req, res) => {

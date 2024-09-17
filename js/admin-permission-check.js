@@ -9,7 +9,8 @@ document.addEventListener('DOMContentLoaded', function() {
         'registrar': 'registrar_access',
         'course-department': 'course_department_access',
         'manage-admin': 'manage_admin_access',
-        'avp': 'avp_access'
+        'avp': 'avp_access',
+        'changelog': 'changelog_access'  
     };
 
     const requiredPermission = permissionMap[currentPage];
