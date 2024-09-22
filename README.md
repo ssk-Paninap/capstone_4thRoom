@@ -11,14 +11,3 @@
   </ul>
 </center>
 
-## Contributing to the Project
-
-We welcome contributions to the `capstone_4thRoom` project! To modify, add, or remove content, please follow these instructions:
-
-### **1. Clone the Repository**
-
-To work on the project locally, first clone the repository to your local machine:
-
-```bash
-git clone https://github.com/your-username/capstone_4thRoom.git
-cd capstone_4thRoom
