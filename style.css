@@ -45,9 +45,11 @@ body {
     flex-direction: column;
     background-image: linear-gradient(skyblue, lightgray);
 }
+
 .content {
     flex: 1 0 auto;
 }
+
 .container {
     flex: 1;
 }
@@ -213,24 +215,29 @@ body {
     border: none;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
+
 .card-title {
     color: #007FFF;
     font-weight: bold;
 }
+
 .btn-primary {
     background-color: #007FFF;
     border-color: #007FFF;
 }
+
 .btn-primary:hover {
     background-color: #0056b3;
     border-color: #0056b3;
 }
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .profile-img {
         width: 100px;
         height: 100px;
     }
+
     .card {
         margin-bottom: 1rem;
     }
@@ -499,6 +506,7 @@ footer {
 .footer-content ul li a:hover {
     text-decoration: underline;
 }
+
 .modal {
     display: none;
     position: fixed;
@@ -508,11 +516,14 @@ footer {
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0,0,0,0.4);
+    background-color: rgba(0, 0, 0, 0.4);
 }
-.modal-backdrop{position: relative;
+
+.modal-backdrop {
+    position: relative;
     z-index: 999;
 }
+
 .modal-content {
     background-color: #fefefe;
     margin: 10% auto;
@@ -521,7 +532,7 @@ footer {
     width: 70%;
     max-width: 800px;
     border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .close {
@@ -577,35 +588,43 @@ footer {
         margin: 20% auto;
         padding: 20px;
     }
+
     .modal-content h2 {
         font-size: 24px;
     }
+
     .modal-description {
         font-size: 14px;
     }
 }
+
 #eventsContainer {
     scroll-behavior: smooth;
     padding: 20px 0;
 }
+
 .events-section {
     margin-bottom: 60px;
     padding-bottom: 30px;
 }
+
 .event-card {
     transition: all 0.3s ease;
     width: 300px;
     margin: 0 10px;
 }
 
-#prevButton, #nextButton {
+#prevButton,
+#nextButton {
     z-index: 1000;
     background-color: rgba(0, 127, 255, 0.7);
     border: none;
     padding: 10px;
     font-size: 20px;
 }
-#prevButton:hover, #nextButton:hover {
+
+#prevButton:hover,
+#nextButton:hover {
     background-color: rgba(0, 127, 255, 1);
 }
 
@@ -614,7 +633,8 @@ footer {
         width: 250px;
     }
 
-    #prevButton, #nextButton {
+    #prevButton,
+    #nextButton {
         padding: 5px;
         font-size: 16px;
     }

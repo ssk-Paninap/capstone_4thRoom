@@ -7,12 +7,12 @@
     <title>About - 4thRoom</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="about.css">
 </head>
 
-<body class="bg-light">
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light custom-navbar light-red-bg">
+<body>
+
+    <nav class="navbar navbar-expand-lg custom-navbar">
         <div class="container-fluid">
             <a class="navbar-brand" href="/index.html">4thRoom</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
@@ -22,115 +22,149 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" aria-current="page" href="../index.html"><i class="fas fa-home"></i>
-                            Home</a>
+                        <a class="nav-link active" href="index.html">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="chatbox.html"><i class="fas fa-robot"></i> Chatbot</a>
+                        <a class="nav-link" href="components/chatbox.html">Chatbot</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="about.html"><i class="fas fa-info-circle"></i> About</a>
+                        <a class="nav-link" aria-current="page" href="components/about.html">About</a>
                     </li>
                     <li class="nav-item">
-                        <a id="loginButton" class="nav-link" href="user-login.html"><i class="fas fa-sign-in-alt"></i>
-                            Log In</a>
+                        <a class="nav-link" id="loginButton" href="components/user-login.html">Log In</a>
                     </li>
                     <li class="nav-item">
-                        <a id="signupButton" class="nav-link" href="user-signup.html"><i class="fas fa-user-plus"></i>
-                            Sign Up</a>
-                    </li>
+                        <a class="nav-link" id="signupButton" href="components/user-signup.html">Sign Up</a>
                     </li>
                     <li class="nav-item">
-                        <a id="profileButton" class="nav-link" href="profile.html"><i class="fas fa-user-plus"></i>
-                            profile</a>
+                        <a class="nav-link" id="profileButton" href="components/profile.html">Profile</a>
                     </li>
                     <li class="nav-item">
-                        <button id="logoutButton" class="btn btn-link nav-link" onclick="logout()"><i
-                                class="fas fa-sign-out-alt"></i> Log Out</button>
+                        <a class="nav-link" id="logoutButton" href="#">Log Out</a>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
     <!-- About Content -->
-    <div class="container mt-5">
+    <!-- Hero Section -->
+    <section class="hero-section text-center text-white d-flex align-items-center m-5">
+        <div class="container">
+            <h1 class="display-4 text-dark fw-bold">Welcome to 4thRoom</h1>
+            <p class="lead text-dark fw-bold">Empowering Students with Smart Decision Support</p>
+        </div>
+    </section>
+
+    <!-- About Content -->
+    <div class="container mt-5" id="about">
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <div class="card shadow-lg border-0 rounded-lg">
                     <div class="card-header bg-primary text-white text-center py-4">
                         <h1 class="mb-0"><i class="fas fa-info-circle fa-lg me-2"></i>About 4thRoom</h1>
-                        <p><br>The product of the study is a web application named 4thRoom: Web Application School
-                            Decision
-                            Support Chatbot through the
-                            utilization of Natural Language Processing. The web application will be a mobile first
-                            platform where the it provides
-                            guidance and walkthrough for students and visitors that have a certain process that they
-                            need to attend within Arellano
-                            University Andres Bonifacio Campus, the processes stated involves providing location, step
-                            by step guidance on what to
-                            do (e.g Enrollment process, Clearance, Discount processes etc.) and Announcement notices if
-                            ever there is an event
-                            within the campus (e.g. Fumigation, Orientation, Concert, Intramurals, Holidays etc.)
-                            ensuring that the users will be
-                            able to plan ahead with ease upon deciding to go to the campus.</p>
                     </div>
-
-
-
+                    <div class="card-body">
+                        <p>The product of the study is a web application named <strong>4thRoom</strong>: Web Application
+                            School Decision Support Chatbot through the utilization of Natural Language Processing. The
+                            web
+                            application is a mobile-first platform that provides guidance and walkthroughs for students
+                            and
+                            visitors navigating various processes within Arellano University Andres Bonifacio Campus.
+                            These
+                            processes include Enrollment, Clearance, Discount processes, and more. Additionally, 4thRoom
+                            offers Announcement notices for campus events such as Fumigation, Orientation, Concerts,
+                            Intramurals, and Holidays, ensuring that users can plan ahead with ease upon deciding to
+                            visit
+                            the campus.</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <section class="m-3">
-        <div class="container mt-5">
-            <div id="eventsContainer" class="d-flex overflow-hidden">
-                <div class="event-card flex-shrink-0 mx-2" style="width: 300px;">
-                    <div class="card h-100">
-                        <img src="" class="card-img-top" alt="Event Image" height="200px" width="auto">
-                        <div class="card-body">
-                            <h5 class="card-title text-dark"></h5>
-                            <p class="card-text"></p>
-                            <p class="card-text"></p>
-
+    <!-- Features Section -->
+    <section class="features-section py-5">
+        <div class="container">
+            <h2 class="text-center mb-4 fw-bold">Features</h2>
+            <div class="row">
+                <!-- Feature 1 -->
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-map-marked-alt fa-3x mb-3 text-primary"></i>
+                    <h4>Location Guidance</h4>
+                    <p>Provides precise locations and maps to navigate through the campus efficiently.</p>
+                </div>
+                <!-- Feature 2 -->
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-tasks fa-3x mb-3 text-primary"></i>
+                    <h4>Step-by-Step Guidance</h4>
+                    <p>Offers detailed instructions for processes like enrollment, clearance, and discounts.</p>
+                </div>
+                <!-- Feature 3 -->
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-bullhorn fa-3x mb-3 text-primary"></i>
+                    <h4>Event Announcements</h4>
+                    <p>Notifies users about upcoming campus events, ensuring they stay informed and prepared.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Team Section -->
+    <section class="team-section bg-light py-5">
+        <div class="container">
+            <h2 class="text-center mb-4 fw-bold">Meet the Team</h2>
+            <div class="row justify-content-center">
+                <!-- Team Member 1 -->
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="card h-100 shadow event-card">
+                        <img src="media/lhars.jpg" class="card-img-top" alt="Lhars Michael San Pedro" height="300px">
+                        <div class="card-body text-center">
+                            <h5 class="card-title fw-bold">Lhars Michael San Pedro</h5>
+                            <p class="card-text fw-bold">Roles: Back End Developer, Documentation, Front End Developer,
+                                Database,
+                                Analyst</p>
                         </div>
                     </div>
                 </div>
-                <div class="event-card flex-shrink-0 mx-2" style="width: 300px;">
-                    <div class="card h-100">
-                        <img src="media/" class="card-img-top" alt="Event Image" height="200px" width="auto">
-                        <div class="card-body">
-                            <h5 class="card-title text-dark"></h5>
-                            <p class="card-text"></p>
-                            <p class="card-text"></p>
-
+                <!-- Team Member 2 -->
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="card h-100 shadow event-card">
+                        <img src="media/jules.jpg" class="card-img-top" alt="Jules Ugdoracion" height="300px">
+                        <div class="card-body text-center">
+                            <h5 class="card-title fw-bold">Jules Ugdoracion</h5>
+                            <p class="card-text fw-bold">Roles: Documentation</p>
                         </div>
                     </div>
                 </div>
-                <div class="event-card flex-shrink-0 mx-2" style="width: 300px;">
-                    <div class="card h-100">
-                        <img src="" class="card-img-top" alt="Event Image" height="200px" width="auto">
-                        <div class="card-body">
-                            <h5 class="card-title text-dark"></h5>
-                            <p class="card-text"></p>
-                            <p class="card-text"></p>
-
+                <!-- Team Member 3 -->
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="card h-100 shadow event-card">
+                        <img src="media/Calica, John Kelly B..jpg" class="card-img-top" alt="John Kelly Calica"
+                            height="300px">
+                        <div class="card-body text-center">
+                            <h5 class="card-title fw-bold">John Kelly Calica</h5>
+                            <p class="card-text fw-bold">Roles: Front End Developer, Documentation, Analyst</p>
                         </div>
                     </div>
                 </div>
-                <div class="event-card flex-shrink-0 mx-2" style="width: 300px;">
-                    <div class="card h-100">
-                        <img src="card-img-top" alt="Event Image" height="200px" width="auto">
-                        <div class="card-body">
-                            <h5 class="card-title text-dark"></h5>
-                            <p class="card-text"></p>
-                            <p class="card-text"></p>
+                <!-- Team Member 4 -->
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="card h-100 shadow event-card">
+                        <img src="media/joefer.png" class="card-img-top" alt="Joefer Gonzales" height="300px">
+                        <div class="card-body text-center">
+                            <h5 class="card-title fw-bold">Joefer Gonzales</h5>
+                            <p class="card-text fw-bold">Roles: Front End Developer, Back End Developer, Database</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
+    <footer class="bg-dark text-light py-3 mt-5">
+        <div class="container">
+            <p class="text-center mb-0">Copyright © 4thRoom</p>
+        </div>
+    </footer>
+
     <script src="../js/auth.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>

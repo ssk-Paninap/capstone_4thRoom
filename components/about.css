@@ -1,0 +1,81 @@
+.custom-navbar {
+    padding: 0.5rem 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.custom-navbar .nav-link:hover,
+.custom-navbar .nav-link.active {
+    background-color: #E6F3FF;
+    color: #007FFF;
+}
+
+.custom-navbar .navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+    color: black;
+}
+
+.custom-navbar .nav-link {
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    margin: 0.25rem;
+    border-radius: 20px;
+    transition: background-color 0.3s ease;
+    color: black;
+}
+
+.custom-navbar .navbar-toggler {
+    border: none;
+}
+
+.custom-navbar .navbar-toggler:focus {
+    box-shadow: none;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-image: linear-gradient(skyblue, white);
+}
+
+/* Content Hover Effects */
+.card-body {
+    transition: background-color 0.3s ease;
+}
+
+.card:hover .card-body {
+    background-color: #f8f9fa;
+    /* Light background on hover */
+}
+
+.card-title {
+    transition: color 0.3s ease;
+}
+
+.card:hover .card-title {
+    color: #007FFF;
+    /* Change title color on hover */
+}
+
+.card-text {
+    transition: color 0.3s ease;
+}
+
+.card:hover .card-text {
+    color: #555555;
+    /* Darken text on hover */
+}
+
+.card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: scale(1.05);
+    /* Slightly enlarge the card */
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    /* Enhance shadow */
+    cursor: pointer;
+    /* Indicate interactivity */
+}
